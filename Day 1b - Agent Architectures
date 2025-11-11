@@ -1,1 +1,2299 @@
-{"metadata":{"kernelspec":{"name":"python3","display_name":"Python 3","language":"python"},"language_info":{"name":"python","version":"3.11.13","mimetype":"text/x-python","codemirror_mode":{"name":"ipython","version":3},"pygments_lexer":"ipython3","nbconvert_exporter":"python","file_extension":".py"},"kaggle":{"accelerator":"none","dataSources":[],"isInternetEnabled":true,"language":"python","sourceType":"notebook","isGpuEnabled":false}},"nbformat_minor":4,"nbformat":4,"cells":[{"cell_type":"markdown","source":"##### Copyright 2025 Google LLC.","metadata":{}},{"cell_type":"code","source":"# @title Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n# https://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.","metadata":{"trusted":true,"execution":{"iopub.status.busy":"2025-11-10T21:57:40.307674Z","iopub.execute_input":"2025-11-10T21:57:40.307986Z","iopub.status.idle":"2025-11-10T21:57:40.313551Z","shell.execute_reply.started":"2025-11-10T21:57:40.307935Z","shell.execute_reply":"2025-11-10T21:57:40.312426Z"}},"outputs":[],"execution_count":null},{"cell_type":"markdown","source":"# 🚀 Multi-Agent Systems & Workflow Patterns\n\n**Welcome to the Kaggle 5-day Agents course!**\n\nIn the previous notebook, you built a **single agent** that could take action. Now, you'll learn how to scale up by building **agent teams**.\n\nJust like a team of people, you can create specialized agents that collaborate to solve complex problems. This is called a **multi-agent system**, and it's one of the most powerful concepts in AI agent development.\n\nIn this notebook, you'll:\n\n- ✅ Learn when to use multi-agent systems in [Agent Development Kit (ADK)](https://google.github.io/adk-docs/)\n- ✅ Build your first system using an LLM as a \"manager\"\n- ✅ Learn three core workflow patterns (Sequential, Parallel, and Loop) to coordinate your agent teams\n\n## ‼️ Please Read\n\n> ❌ **ℹ️ Note: No submission required!**\n> This notebook is for your hands-on practice and learning only. You **do not** need to submit it anywhere to complete the course.\n\n> ⏸️ **Note:**  When you first start the notebook via running a cell you might see a banner in the notebook header that reads **\"Waiting for the next available notebook\"**. The queue should drop rapidly; however, during peak bursts you might have to wait a few minutes.\n\n> ❌ **Note:** Avoid using the **Run all** cells command as this can trigger a QPM limit resulting in 429 errors when calling the backing model. Suggested flow is to run each cell in order - one at a time. [See FAQ on 429 errors for more information.](https://www.kaggle.com/code/kaggle5daysofai/day-0-troubleshooting-and-faqs)\n\n**For help: Ask questions on the [Kaggle Discord](https://discord.com/invite/kaggle) server.**","metadata":{}},{"cell_type":"markdown","source":"## 📖 Get started with Kaggle Notebooks\n\nIf this is your first time using Kaggle Notebooks, welcome! You can learn more about using Kaggle Notebooks [in the documentation](https://www.kaggle.com/docs/notebooks).\n\nHere's how to get started:\n\n**1. Verify Your Account (Required)**\n\nTo use the Kaggle Notebooks in this course, you'll need to verify your account with a phone number.\n\nYou can do this in your [Kaggle settings](https://www.kaggle.com/settings).\n\n**2. Make Your Own Copy**\n\nTo run any code in this notebook, you first need your own editable copy.\n\nClick the `Copy and Edit` button in the top-right corner.\n\n![Copy and Edit button](https://storage.googleapis.com/kaggle-media/Images/5gdai_sc_1.png)\n\nThis creates a private copy of the notebook just for you.\n\n**3. Run Code Cells**\n\nOnce you have your copy, you can run code.\n\nClick the ▶️ Run button next to any code cell to execute it.\n\n![Run cell button](https://storage.googleapis.com/kaggle-media/Images/5gdai_sc_2.png)\n\nRun the cells in order from top to bottom.\n\n**4. If You Get Stuck**\n\nTo restart: Select `Factory reset` from the `Run` menu.\n\nFor help: Ask questions on the [Kaggle Discord](https://discord.com/invite/kaggle) server.","metadata":{}},{"cell_type":"markdown","source":"## ⚙️ Section 1: Setup\n\n### 1.1: Install dependencies\n\nThe Kaggle Notebooks environment includes a pre-installed version of the [google-adk](https://google.github.io/adk-docs/) library for Python and its required dependencies, so you don't need to install additional packages in this notebook.\n\nTo install and use ADK in your own Python development environment outside of this course, you can do so by running:\n\n```\npip install google-adk\n```","metadata":{}},{"cell_type":"markdown","source":"### 1.2: Configure your Gemini API Key\n\nThis notebook uses the [Gemini API](https://ai.google.dev/gemini-api/docs), which requires authentication.\n\n**1. Get your API key**\n\nIf you don't have one already, create an [API key in Google AI Studio](https://aistudio.google.com/app/api-keys).\n\n**2. Add the key to Kaggle Secrets**\n\nNext, you will need to add your API key to your Kaggle Notebook as a Kaggle User Secret.\n\n1. In the top menu bar of the notebook editor, select `Add-ons` then `Secrets`.\n2. Create a new secret with the label `GOOGLE_API_KEY`.\n3. Paste your API key into the \"Value\" field and click \"Save\".\n4. Ensure that the checkbox next to `GOOGLE_API_KEY` is selected so that the secret is attached to the notebook.\n\n**3. Authenticate in the notebook**\n\nRun the cell below to complete authentication.","metadata":{}},{"cell_type":"code","source":"import os\nfrom kaggle_secrets import UserSecretsClient\n\ntry:\n    GOOGLE_API_KEY = UserSecretsClient().get_secret(\"GOOGLE_API_KEY\")\n    os.environ[\"GOOGLE_API_KEY\"] = GOOGLE_API_KEY\n    print(\"✅ Gemini API key setup complete.\")\nexcept Exception as e:\n    print(\n        f\"🔑 Authentication Error: Please make sure you have added 'GOOGLE_API_KEY' to your Kaggle secrets. Details: {e}\"\n    )","metadata":{"trusted":true,"execution":{"iopub.status.busy":"2025-11-11T16:06:38.307089Z","iopub.execute_input":"2025-11-11T16:06:38.307370Z","iopub.status.idle":"2025-11-11T16:06:38.546672Z","shell.execute_reply.started":"2025-11-11T16:06:38.307354Z","shell.execute_reply":"2025-11-11T16:06:38.545607Z"}},"outputs":[{"name":"stdout","text":"✅ Gemini API key setup complete.\n","output_type":"stream"}],"execution_count":5},{"cell_type":"markdown","source":"### 1.3: Import ADK components\n\nNow, import the specific components you'll need from the Agent Development Kit and the Generative AI library. This keeps your code organized and ensures we have access to the necessary building blocks.","metadata":{}},{"cell_type":"code","source":"from google.adk.agents import Agent, SequentialAgent, ParallelAgent, LoopAgent\nfrom google.adk.models.google_llm import Gemini\nfrom google.adk.runners import InMemoryRunner\nfrom google.adk.tools import AgentTool, FunctionTool, google_search\nfrom google.genai import types\n\nprint(\"✅ ADK components imported successfully.\")","metadata":{"trusted":true,"execution":{"iopub.status.busy":"2025-11-11T16:06:43.920590Z","iopub.execute_input":"2025-11-11T16:06:43.920974Z","iopub.status.idle":"2025-11-11T16:07:31.151540Z","shell.execute_reply.started":"2025-11-11T16:06:43.920937Z","shell.execute_reply":"2025-11-11T16:07:31.150836Z"}},"outputs":[{"name":"stdout","text":"✅ ADK components imported successfully.\n","output_type":"stream"}],"execution_count":6},{"cell_type":"markdown","source":"### 1.4: Configure Retry Options\n\nWhen working with LLMs, you may encounter transient errors like rate limits or temporary service unavailability. Retry options automatically handle these failures by retrying the request with exponential backoff.","metadata":{}},{"cell_type":"code","source":"retry_config=types.HttpRetryOptions(\n    attempts=5,  # Maximum retry attempts\n    exp_base=7,  # Delay multiplier\n    initial_delay=1,\n    http_status_codes=[429, 500, 503, 504], # Retry on these HTTP errors\n)","metadata":{"trusted":true,"execution":{"iopub.status.busy":"2025-11-11T16:07:31.152400Z","iopub.execute_input":"2025-11-11T16:07:31.153567Z","iopub.status.idle":"2025-11-11T16:07:31.157796Z","shell.execute_reply.started":"2025-11-11T16:07:31.153549Z","shell.execute_reply":"2025-11-11T16:07:31.156912Z"}},"outputs":[],"execution_count":7},{"cell_type":"markdown","source":"---\n## 🤔 Section 2: Why Multi-Agent Systems? + Your First Multi-Agent","metadata":{}},{"cell_type":"markdown","source":"**The Problem: The \"Do-It-All\" Agent**\n\nSingle agents can do a lot. But what happens when the task gets complex? A single \"monolithic\" agent that tries to do research, writing, editing, and fact-checking all at once becomes a problem. Its instruction prompt gets long and confusing. It's hard to debug (which part failed?), difficult to maintain, and often produces unreliable results.\n\n**The Solution: A Team of Specialists**\n\nInstead of one \"do-it-all\" agent, we can build a **multi-agent system**. This is a team of simple, specialized agents that collaborate, just like a real-world team. Each agent has one clear job (e.g., one agent *only* does research, another *only* writes). This makes them easier to build, easier to test, and much more powerful and reliable when working together.\n\nTo learn more, check out the documentation related to [LLM agents in ADK](https://google.github.io/adk-docs/agents/llm-agents/).\n\n**Architecture: Single Agent vs Multi-Agent Team**\n\n<!--\n```mermaid\ngraph TD\n    subgraph Single[\"❌ Monolithic Agent\"]\n        A[\"One Agent Does Everything\"]\n    end\n\n    subgraph Multi[\"✅ Multi-Agent Team\"]\n        B[\"Root Coordinator\"] -- > C[\"Research Specialist\"]\n        B -- > E[\"Summary Specialist\"]\n\n        C -- >|findings| F[\"Shared State\"]\n        E -- >|summary| F\n    end\n\n    style A fill:#ffcccc\n    style B fill:#ccffcc\n    style F fill:#ffffcc\n```\n-->","metadata":{}},{"cell_type":"markdown","source":"<img width=\"800\" src=\"https://storage.googleapis.com/github-repo/kaggle-5days-ai/day1/multi-agent-team.png\" alt=\"Multi-agent Team\" />","metadata":{}},{"cell_type":"markdown","source":"### 2.1 Example: Research & Summarization System\n\nLet's build a system with two specialized agents:\n\n1. **Research Agent** - Searches for information using Google Search\n2. **Summarizer Agent** - Creates concise summaries from research findings","metadata":{}},{"cell_type":"code","source":"# Research Agent: Its job is to use the google_search tool and present findings.\nresearch_agent = Agent(\n    name=\"ResearchAgent\",\n    model=Gemini(\n        model=\"gemini-2.5-flash-lite\",\n        retry_options=retry_config\n    ),\n    instruction=\"\"\"You are a specialized research agent. Your only job is to use the\n    google_search tool to find 2-3 pieces of relevant information on the given topic and present the findings with citations.\"\"\",\n    tools=[google_search],\n    output_key=\"research_findings\",  # The result of this agent will be stored in the session state with this key.\n)\n\nprint(\"✅ research_agent created.\")","metadata":{"trusted":true,"execution":{"iopub.status.busy":"2025-11-11T16:09:01.490420Z","iopub.execute_input":"2025-11-11T16:09:01.490738Z","iopub.status.idle":"2025-11-11T16:09:01.496494Z","shell.execute_reply.started":"2025-11-11T16:09:01.490685Z","shell.execute_reply":"2025-11-11T16:09:01.495743Z"}},"outputs":[{"name":"stdout","text":"✅ research_agent created.\n","output_type":"stream"}],"execution_count":8},{"cell_type":"code","source":"# Summarizer Agent: Its job is to summarize the text it receives.\nsummarizer_agent = Agent(\n    name=\"SummarizerAgent\",\n    model=Gemini(\n        model=\"gemini-2.5-flash-lite\",\n        retry_options=retry_config\n    ),\n    # The instruction is modified to request a bulleted list for a clear output format.\n    instruction=\"\"\"Read the provided research findings: {research_findings}\nCreate a concise summary as a bulleted list with 3-5 key points.\"\"\",\n    output_key=\"final_summary\",\n)\n\nprint(\"✅ summarizer_agent created.\")","metadata":{"trusted":true,"execution":{"iopub.status.busy":"2025-11-11T16:09:11.304474Z","iopub.execute_input":"2025-11-11T16:09:11.304805Z","iopub.status.idle":"2025-11-11T16:09:11.311018Z","shell.execute_reply.started":"2025-11-11T16:09:11.304787Z","shell.execute_reply":"2025-11-11T16:09:11.310150Z"}},"outputs":[{"name":"stdout","text":"✅ summarizer_agent created.\n","output_type":"stream"}],"execution_count":9},{"cell_type":"markdown","source":"Refer to the ADK documentation for more information on [guiding agents with clear and specific instructions](https://google.github.io/adk-docs/agents/llm-agents/).\n\nThen we bring the agents together under a root agent, or coordinator:","metadata":{}},{"cell_type":"code","source":"# Root Coordinator: Orchestrates the workflow by calling the sub-agents as tools.\nroot_agent = Agent(\n    name=\"ResearchCoordinator\",\n    model=Gemini(\n        model=\"gemini-2.5-flash-lite\",\n        retry_options=retry_config\n    ),\n    # This instruction tells the root agent HOW to use its tools (which are the other agents).\n    instruction=\"\"\"You are a research coordinator. Your goal is to answer the user's query by orchestrating a workflow.\n1. First, you MUST call the `ResearchAgent` tool to find relevant information on the topic provided by the user.\n2. Next, after receiving the research findings, you MUST call the `SummarizerAgent` tool to create a concise summary.\n3. Finally, present the final summary clearly to the user as your response.\"\"\",\n    # We wrap the sub-agents in `AgentTool` to make them callable tools for the root agent.\n    tools=[AgentTool(research_agent), AgentTool(summarizer_agent)],\n)\n\nprint(\"✅ root_agent created.\")","metadata":{"id":"PKthuzRkBtHD","outputId":"dee6d4cc-17b4-4430-8454-d56096fbe360","trusted":true,"execution":{"iopub.status.busy":"2025-11-11T16:10:15.182607Z","iopub.execute_input":"2025-11-11T16:10:15.182938Z","iopub.status.idle":"2025-11-11T16:10:15.188266Z","shell.execute_reply.started":"2025-11-11T16:10:15.182920Z","shell.execute_reply":"2025-11-11T16:10:15.187482Z"}},"outputs":[{"name":"stdout","text":"✅ root_agent created.\n","output_type":"stream"}],"execution_count":10},{"cell_type":"markdown","source":"Here we're using `AgentTool` to wrap the sub-agents to make them callable tools for the root agent. We'll explore `AgentTool` in-detail on Day 2.\n\nLet's run the agent and ask it about a topic:","metadata":{}},{"cell_type":"code","source":"runner = InMemoryRunner(agent=root_agent)\nresponse = await runner.run_debug(\n    \"What are the latest advancements in quantum computing and what do they mean for AI?\"\n)","metadata":{"trusted":true,"execution":{"iopub.status.busy":"2025-11-11T16:10:19.720359Z","iopub.execute_input":"2025-11-11T16:10:19.720619Z","iopub.status.idle":"2025-11-11T16:10:29.818339Z","shell.execute_reply.started":"2025-11-11T16:10:19.720605Z","shell.execute_reply":"2025-11-11T16:10:29.817235Z"}},"outputs":[{"name":"stdout","text":"\n ### Created new session: debug_session_id\n\nUser > What are the latest advancements in quantum computing and what do they mean for AI?\n","output_type":"stream"},{"name":"stderr","text":"WARNING:google_genai.types:Warning: there are non-text parts in the response: ['function_call'], returning concatenated text result from text parts. Check the full candidates.content.parts accessor to get the full model response.\nWARNING:google_genai.types:Warning: there are non-text parts in the response: ['function_call'], returning concatenated text result from text parts. Check the full candidates.content.parts accessor to get the full model response.\n","output_type":"stream"},{"name":"stdout","text":"ResearchCoordinator > Quantum AI is set to be a transformative force, merging the power of quantum computing with artificial intelligence. Key advancements include more stable quantum hardware, the development of hybrid quantum-classical computing systems, and scalable quantum machine learning algorithms. These breakthroughs promise to accelerate AI training, enhance data processing, and enable AI to tackle complex problems in fields like drug discovery and materials science. Furthermore, AI is itself being used to improve quantum systems. Practical applications are expected within the next 5 to 10 years, with significant implications for industries such as healthcare, finance, and cybersecurity.\n","output_type":"stream"}],"execution_count":11},{"cell_type":"markdown","source":"You've just built your first multi-agent system! You used a single \"coordinator\" agent to manage the workflow, which is a powerful and flexible pattern.\n\n‼️ However, **relying on an LLM's instructions to control the order can sometimes be unpredictable.** Next, we'll explore a different pattern that gives you guaranteed, step-by-step execution.","metadata":{}},{"cell_type":"markdown","source":"---\n\n## 🚥 Section 3: Sequential Workflows - The Assembly Line\n\n**The Problem: Unpredictable Order**\n\nThe previous multi-agent system worked, but it relied on a **detailed instruction prompt** to force the LLM to run steps in order. This can be unreliable. A complex LLM might decide to skip a step, run them in the wrong order, or get \"stuck,\" making the process unpredictable.\n\n**The Solution: A Fixed Pipeline**\n\nWhen you need tasks to happen in a **guaranteed, specific order**, you can use a `SequentialAgent`. This agent acts like an assembly line, running each sub-agent in the exact order you list them. The output of one agent automatically becomes the input for the next, creating a predictable and reliable workflow.\n\n**Use Sequential when:** Order matters, you need a linear pipeline, or each step builds on the previous one.\n\nTo learn more, check out the documentation related to [sequential agents in ADK](https://google.github.io/adk-docs/agents/workflow-agents/sequential-agents/).\n\n**Architecture: Blog Post Creation Pipeline**\n\n<!--\n```mermaid\ngraph LR\n    A[\"User Input: Blog about AI\"] -- > B[\"Outline Agent\"]\n    B -- >|blog_outline| C[\"Writer Agent\"]\n    C -- >|blog_draft| D[\"Editor Agent\"]\n    D -- >|final_blog| E[\"Output\"]\n\n    style B fill:#ffcccc\n    style C fill:#ccffcc\n    style D fill:#ccccff\n```\n-->","metadata":{"id":"h6Bcds7EBtHE"}},{"cell_type":"markdown","source":"<img width=\"1000\" src=\"https://storage.googleapis.com/github-repo/kaggle-5days-ai/day1/sequential-agent.png\" alt=\"Sequential Agent\" />","metadata":{}},{"cell_type":"markdown","source":"### 3.1 Example: Blog Post Creation with Sequential Agents\n\nLet's build a system with three specialized agents:\n\n1. **Outline Agent** - Creates a blog outline for a given topic\n2. **Writer Agent** - Writes a blog post\n3. **Editor Agent** - Edits a blog post draft for clarity and structure","metadata":{"id":"h6Bcds7EBtHE"}},{"cell_type":"code","source":"# Outline Agent: Creates the initial blog post outline.\noutline_agent = Agent(\n    name=\"OutlineAgent\",\n    model=Gemini(\n        model=\"gemini-2.5-flash-lite\",\n        retry_options=retry_config\n    ),\n    instruction=\"\"\"Create a blog outline for the given topic with:\n    1. A catchy headline\n    2. An introduction hook\n    3. 3-5 main sections with 2-3 bullet points for each\n    4. A concluding thought\"\"\",\n    output_key=\"blog_outline\",  # The result of this agent will be stored in the session state with this key.\n)\n\nprint(\"✅ outline_agent created.\")","metadata":{"id":"TLflGqQVBtHE","outputId":"b671e4da-e69d-44f0-bf3b-85dc7cb51496","trusted":true,"execution":{"iopub.status.busy":"2025-11-11T16:16:47.090536Z","iopub.execute_input":"2025-11-11T16:16:47.090838Z","iopub.status.idle":"2025-11-11T16:16:47.096004Z","shell.execute_reply.started":"2025-11-11T16:16:47.090820Z","shell.execute_reply":"2025-11-11T16:16:47.095209Z"}},"outputs":[{"name":"stdout","text":"✅ outline_agent created.\n","output_type":"stream"}],"execution_count":13},{"cell_type":"code","source":"# Writer Agent: Writes the full blog post based on the outline from the previous agent.\nwriter_agent = Agent(\n    name=\"WriterAgent\",\n    model=Gemini(\n        model=\"gemini-2.5-flash-lite\",\n        retry_options=retry_config\n    ),\n    # The `{blog_outline}` placeholder automatically injects the state value from the previous agent's output.\n    instruction=\"\"\"Following this outline strictly: {blog_outline}\n    Write a brief, 200 to 300-word blog post with an engaging and informative tone.\"\"\",\n    output_key=\"blog_draft\",  # The result of this agent will be stored with this key.\n)\n\nprint(\"✅ writer_agent created.\")","metadata":{"id":"TLflGqQVBtHE","outputId":"b671e4da-e69d-44f0-bf3b-85dc7cb51496","trusted":true,"execution":{"iopub.status.busy":"2025-11-11T16:16:49.887997Z","iopub.execute_input":"2025-11-11T16:16:49.888256Z","iopub.status.idle":"2025-11-11T16:16:49.893446Z","shell.execute_reply.started":"2025-11-11T16:16:49.888241Z","shell.execute_reply":"2025-11-11T16:16:49.892617Z"}},"outputs":[{"name":"stdout","text":"✅ writer_agent created.\n","output_type":"stream"}],"execution_count":14},{"cell_type":"code","source":"# Editor Agent: Edits and polishes the draft from the writer agent.\neditor_agent = Agent(\n    name=\"EditorAgent\",\n    model=Gemini(\n        model=\"gemini-2.5-flash-lite\",\n        retry_options=retry_config\n    ),\n    # This agent receives the `{blog_draft}` from the writer agent's output.\n    instruction=\"\"\"Edit this draft: {blog_draft}\n    Your task is to polish the text by fixing any grammatical errors, improving the flow and sentence structure, and enhancing overall clarity.\"\"\",\n    output_key=\"final_blog\",  # This is the final output of the entire pipeline.\n)\n\nprint(\"✅ editor_agent created.\")","metadata":{"id":"TLflGqQVBtHE","outputId":"b671e4da-e69d-44f0-bf3b-85dc7cb51496","trusted":true,"execution":{"iopub.status.busy":"2025-11-11T16:16:59.964378Z","iopub.execute_input":"2025-11-11T16:16:59.964667Z","iopub.status.idle":"2025-11-11T16:16:59.971925Z","shell.execute_reply.started":"2025-11-11T16:16:59.964650Z","shell.execute_reply":"2025-11-11T16:16:59.968923Z"}},"outputs":[{"name":"stdout","text":"✅ editor_agent created.\n","output_type":"stream"}],"execution_count":15},{"cell_type":"markdown","source":"Then we bring the agents together under a sequential agent, which runs the agents in the order that they are listed:","metadata":{}},{"cell_type":"code","source":"root_agent = SequentialAgent(\n    name=\"BlogPipeline\",\n    sub_agents=[outline_agent, writer_agent, editor_agent],\n)\n\nprint(\"✅ Sequential Agent created.\")","metadata":{"id":"TLflGqQVBtHE","outputId":"b671e4da-e69d-44f0-bf3b-85dc7cb51496","trusted":true,"execution":{"iopub.status.busy":"2025-11-11T16:17:37.321617Z","iopub.execute_input":"2025-11-11T16:17:37.321960Z","iopub.status.idle":"2025-11-11T16:17:37.328111Z","shell.execute_reply.started":"2025-11-11T16:17:37.321943Z","shell.execute_reply":"2025-11-11T16:17:37.327023Z"}},"outputs":[{"name":"stdout","text":"✅ Sequential Agent created.\n","output_type":"stream"}],"execution_count":16},{"cell_type":"markdown","source":"Let's run the agent and give it a topic to write a blog post about:","metadata":{}},{"cell_type":"code","source":"runner = InMemoryRunner(agent=root_agent)\nresponse = await runner.run_debug(\n    \"Write a blog post about the benefits of multi-agent systems for software developers\"\n)","metadata":{"trusted":true,"execution":{"iopub.status.busy":"2025-11-11T16:18:08.886762Z","iopub.execute_input":"2025-11-11T16:18:08.887046Z","iopub.status.idle":"2025-11-11T16:18:17.839992Z","shell.execute_reply.started":"2025-11-11T16:18:08.887030Z","shell.execute_reply":"2025-11-11T16:18:17.838614Z"}},"outputs":[{"name":"stdout","text":"\n ### Created new session: debug_session_id\n\nUser > Write a blog post about the benefits of multi-agent systems for software developers\nOutlineAgent > ## Blog Outline:\n\n**Headline:** Supercharge Your Software: Unlocking the Power of Multi-Agent Systems\n\n**Introduction Hook:** Ever feel like your software projects are juggling too many tasks, leading to complexity and missed deadlines? Imagine a team of intelligent, independent \"workers\" collaborating seamlessly to get the job done. That's the promise of Multi-Agent Systems (MAS), and it's a game-changer for modern software development.\n\n---\n\n### Main Sections:\n\n**1. What Exactly Are Multi-Agent Systems?**\n\n*   **Decentralized Intelligence:** Understanding that MAS are composed of multiple autonomous agents, each with its own goals and decision-making capabilities.\n*   **Collaboration and Coordination:** Explaining how these agents communicate, negotiate, and work together to achieve a common objective or solve a complex problem.\n*   **Beyond Simple Automation:** Differentiating MAS from traditional monolithic systems by highlighting their emergent behavior and adaptability.\n\n**2. The Developer's Advantage: Enhanced Efficiency and Scalability**\n\n*   **Parallel Processing Power:** How MAS can break down large tasks into smaller, manageable chunks processed concurrently by different agents, leading to faster development cycles.\n*   **Scalability on Demand:** The ability to easily add or remove agents to handle fluctuating workloads without significant architectural overhauls.\n*   **Improved Resource Utilization:** Agents can be dynamically allocated to tasks based on available resources, optimizing overall system performance.\n\n**3. Tackling Complexity with Intelligent Decomposition**\n\n*   **Modular Design Made Easy:** MAS naturally lend themselves to modular development, where each agent represents a specific function or domain.\n*   **Simplified Debugging and Maintenance:** Isolating issues within individual agents rather than wading through a massive codebase.\n*   **Handling Dynamic and Uncertain Environments:** The ability of agents to adapt their behavior in real-time to changing external conditions.\n\n**4. Building Smarter, More Resilient Software**\n\n*   **Fault Tolerance and Robustness:** If one agent fails, others can often pick up the slack, preventing complete system failure.\n*   **Emergent Intelligence and Optimization:** Unexpected, superior solutions can arise from the interactions of simple agents.\n*   **Future-Proofing Your Applications:** Preparing your software for the increasing complexity and interconnectedness of the digital world.\n\n---\n\n**Concluding Thought:** Multi-Agent Systems aren't just a futuristic concept; they are a practical and powerful paradigm that can revolutionize how software is designed, developed, and deployed. By embracing MAS, developers can build more efficient, scalable, and intelligent applications, positioning themselves and their projects for success in an ever-evolving tech landscape.\nWriterAgent > ## Supercharge Your Software: Unlocking the Power of Multi-Agent Systems\n\nEver feel like your software projects are juggling too many tasks, leading to complexity and missed deadlines? Imagine a team of intelligent, independent \"workers\" collaborating seamlessly to get the job done. That's the promise of Multi-Agent Systems (MAS), and it's a game-changer for modern software development.\n\nAt its core, a MAS is a collection of autonomous agents, each with its own decision-making capabilities. These agents communicate, negotiate, and coordinate their actions to achieve a shared goal or solve a complex problem. Unlike traditional monolithic systems, MAS excel in their decentralized intelligence and emergent behavior, allowing for remarkable adaptability.\n\nFor developers, the advantages are significant. MAS offers unparalleled efficiency and scalability. Large tasks can be broken down and processed concurrently by different agents, dramatically speeding up development cycles. Need to handle a surge in demand? Simply add more agents – scaling becomes a dynamic and less disruptive process. Furthermore, resources are utilized more effectively as agents are allocated to tasks based on availability and needs.\n\nTackling complexity becomes much more manageable. MAS naturally promotes modular design, with each agent encapsulating a specific function or domain. This simplifies debugging and maintenance, allowing you to isolate issues within individual agents rather than navigating a vast codebase. Crucially, MAS are adept at handling dynamic and uncertain environments, as agents can adapt their behavior in real-time.\n\nUltimately, adopting MAS leads to smarter, more resilient software. The decentralized nature enhances fault tolerance; if one agent falters, others can often compensate. The interactions between agents can even lead to emergent intelligence and optimized solutions you might not have initially conceived. By embracing MAS, you're future-proofing your applications for an increasingly complex digital world. It's time to unlock this powerful paradigm and build the next generation of software.\nEditorAgent > ## Supercharge Your Software: Unlocking the Power of Multi-Agent Systems\n\nAre your software projects struggling under the weight of numerous tasks, leading to tangled complexity and looming deadlines? Picture this: a team of intelligent, independent \"workers\" collaborating seamlessly to achieve a common objective. This is the compelling vision of Multi-Agent Systems (MAS), a paradigm poised to revolutionize modern software development.\n\nAt its heart, a MAS comprises a collection of autonomous agents, each endowed with its own decision-making prowess. These agents engage in communication, negotiation, and coordinated actions to accomplish a shared goal or unravel intricate problems. What sets MAS apart from conventional monolithic systems is their decentralized intelligence and capacity for emergent behavior, which fosters remarkable adaptability.\n\nFor software developers, the benefits are substantial. MAS unlocks unparalleled efficiency and scalability. Complex tasks can be deconstructed into smaller, parallelizable units, allowing different agents to tackle them concurrently. This not only accelerates development cycles but also simplifies scaling. Facing a sudden spike in demand? Simply introduce more agents – scaling becomes a fluid and less disruptive undertaking. Moreover, resource utilization is optimized as agents are intelligently allocated to tasks based on real-time availability and necessity.\n\nComplexity, often a daunting challenge, becomes far more manageable with MAS. This approach inherently promotes modular design, with each agent encapsulating a distinct function or domain. This modularity streamlines debugging and maintenance, enabling developers to pinpoint and resolve issues within isolated agents rather than navigating an expansive and convoluted codebase. Crucially, MAS are exceptionally well-suited for dynamic and uncertain environments, as agents can dynamically adjust their behavior in response to changing conditions.\n\nUltimately, embracing MAS results in the creation of smarter, more resilient software. The decentralized architecture enhances fault tolerance; if one agent encounters an issue, others can often step in to maintain system functionality. The intricate interactions between agents can even give rise to emergent intelligence and optimized solutions that might not have been foreseen during the initial design phase. By adopting MAS, you are future-proofing your applications for an increasingly interconnected and complex digital landscape. It's time to harness the potential of this powerful paradigm and usher in the next generation of software.\n","output_type":"stream"}],"execution_count":17},{"cell_type":"markdown","source":"👏 Great job! You've now created a reliable \"assembly line\" using a sequential agent, where each step runs in a predictable order.\n\n**This is perfect for tasks that build on each other, but it's slow if the tasks are independent.** Next, we'll look at how to run multiple agents at the same time to speed up your workflow.","metadata":{}},{"cell_type":"markdown","source":"---\n## 🛣️ Section 4: Parallel Workflows - Independent Researchers\n\n**The Problem: The Bottleneck**\n\nThe previous sequential agent is great, but it's an assembly line. Each step must wait for the previous one to finish. What if you have several tasks that are **not dependent** on each other? For example, researching three *different* topics. Running them in sequence would be slow and inefficient, creating a bottleneck where each task waits unnecessarily.\n\n**The Solution: Concurrent Execution**\n\nWhen you have independent tasks, you can run them all at the same time using a `ParallelAgent`. This agent executes all of its sub-agents concurrently, dramatically speeding up the workflow. Once all parallel tasks are complete, you can then pass their combined results to a final 'aggregator' step.\n\n**Use Parallel when:** Tasks are independent, speed matters, and you can execute concurrently.\n\nTo learn more, check out the documentation related to [parallel agents in ADK](https://google.github.io/adk-docs/agents/workflow-agents/parallel-agents/).\n\n**Architecture: Multi-Topic Research**\n\n<!--\n```mermaid\ngraph TD\n    A[\"User Request: Research 3 topics\"] -- > B[\"Parallel Execution\"]\n    B -- > C[\"Tech Researcher\"]\n    B -- > D[\"Health Researcher\"]\n    B -- > E[\"Finance Researcher\"]\n\n    C -- > F[\"Aggregator\"]\n    D -- > F\n    E -- > F\n    F -- > G[\"Combined Report\"]\n\n    style B fill:#ffffcc\n    style F fill:#ffccff\n```\n-->","metadata":{"id":"U37FxKxDBtHE"}},{"cell_type":"markdown","source":"<img width=\"600\" src=\"https://storage.googleapis.com/github-repo/kaggle-5days-ai/day1/parallel-agent.png\" alt=\"Parallel Agent\" />","metadata":{}},{"cell_type":"markdown","source":"### 4.1 Example: Parallel Multi-Topic Research\n\nLet's build a system with four agents:\n\n1. **Tech Researcher** - Researches AI/ML news and trends\n2. **Health Researcher** - Researches recent medical news and trends\n3. **Finance Researcher** - Researches finance and fintech news and trends\n4. **Aggregator Agent** - Combines all research findings into a single summary","metadata":{"id":"U37FxKxDBtHE"}},{"cell_type":"code","source":"# Tech Researcher: Focuses on AI and ML trends.\ntech_researcher = Agent(\n    name=\"TechResearcher\",\n    model=Gemini(\n        model=\"gemini-2.5-flash-lite\",\n        retry_options=retry_config\n    ),\n    instruction=\"\"\"Research the latest AI/ML trends. Include 3 key developments,\nthe main companies involved, and the potential impact. Keep the report very concise (100 words).\"\"\",\n    tools=[google_search],\n    output_key=\"tech_research\",  # The result of this agent will be stored in the session state with this key.\n)\n\nprint(\"✅ tech_researcher created.\")","metadata":{"id":"GBhNDWZ9BtHE","outputId":"6fe3ae39-c6dc-4924-ab5f-59a58f09a8b5","trusted":true,"execution":{"iopub.status.busy":"2025-11-11T16:19:34.217478Z","iopub.execute_input":"2025-11-11T16:19:34.217758Z","iopub.status.idle":"2025-11-11T16:19:34.223449Z","shell.execute_reply.started":"2025-11-11T16:19:34.217743Z","shell.execute_reply":"2025-11-11T16:19:34.222278Z"}},"outputs":[{"name":"stdout","text":"✅ tech_researcher created.\n","output_type":"stream"}],"execution_count":18},{"cell_type":"code","source":"# Health Researcher: Focuses on medical breakthroughs.\nhealth_researcher = Agent(\n    name=\"HealthResearcher\",\n    model=Gemini(\n        model=\"gemini-2.5-flash-lite\",\n        retry_options=retry_config\n    ),\n    instruction=\"\"\"Research recent medical breakthroughs. Include 3 significant advances,\ntheir practical applications, and estimated timelines. Keep the report concise (100 words).\"\"\",\n    tools=[google_search],\n    output_key=\"health_research\",  # The result will be stored with this key.\n)\n\nprint(\"✅ health_researcher created.\")","metadata":{"id":"GBhNDWZ9BtHE","outputId":"6fe3ae39-c6dc-4924-ab5f-59a58f09a8b5","trusted":true,"execution":{"iopub.status.busy":"2025-11-11T16:19:37.727188Z","iopub.execute_input":"2025-11-11T16:19:37.727500Z","iopub.status.idle":"2025-11-11T16:19:37.732887Z","shell.execute_reply.started":"2025-11-11T16:19:37.727482Z","shell.execute_reply":"2025-11-11T16:19:37.731981Z"}},"outputs":[{"name":"stdout","text":"✅ health_researcher created.\n","output_type":"stream"}],"execution_count":19},{"cell_type":"code","source":"# Finance Researcher: Focuses on fintech trends.\nfinance_researcher = Agent(\n    name=\"FinanceResearcher\",\n    model=Gemini(\n        model=\"gemini-2.5-flash-lite\",\n        retry_options=retry_config\n    ),\n    instruction=\"\"\"Research current fintech trends. Include 3 key trends,\ntheir market implications, and the future outlook. Keep the report concise (100 words).\"\"\",\n    tools=[google_search],\n    output_key=\"finance_research\",  # The result will be stored with this key.\n)\n\nprint(\"✅ finance_researcher created.\")","metadata":{"id":"GBhNDWZ9BtHE","outputId":"6fe3ae39-c6dc-4924-ab5f-59a58f09a8b5","trusted":true,"execution":{"iopub.status.busy":"2025-11-11T16:19:42.206428Z","iopub.execute_input":"2025-11-11T16:19:42.206845Z","iopub.status.idle":"2025-11-11T16:19:42.213269Z","shell.execute_reply.started":"2025-11-11T16:19:42.206820Z","shell.execute_reply":"2025-11-11T16:19:42.212236Z"}},"outputs":[{"name":"stdout","text":"✅ finance_researcher created.\n","output_type":"stream"}],"execution_count":20},{"cell_type":"code","source":"# The AggregatorAgent runs *after* the parallel step to synthesize the results.\naggregator_agent = Agent(\n    name=\"AggregatorAgent\",\n    model=Gemini(\n        model=\"gemini-2.5-flash-lite\",\n        retry_options=retry_config\n    ),\n    # It uses placeholders to inject the outputs from the parallel agents, which are now in the session state.\n    instruction=\"\"\"Combine these three research findings into a single executive summary:\n\n    **Technology Trends:**\n    {tech_research}\n    \n    **Health Breakthroughs:**\n    {health_research}\n    \n    **Finance Innovations:**\n    {finance_research}\n    \n    Your summary should highlight common themes, surprising connections, and the most important key takeaways from all three reports. The final summary should be around 200 words.\"\"\",\n    output_key=\"executive_summary\",  # This will be the final output of the entire system.\n)\n\nprint(\"✅ aggregator_agent created.\")","metadata":{"trusted":true,"execution":{"iopub.status.busy":"2025-11-11T16:19:56.498366Z","iopub.execute_input":"2025-11-11T16:19:56.498640Z","iopub.status.idle":"2025-11-11T16:19:56.503648Z","shell.execute_reply.started":"2025-11-11T16:19:56.498622Z","shell.execute_reply":"2025-11-11T16:19:56.502927Z"}},"outputs":[{"name":"stdout","text":"✅ aggregator_agent created.\n","output_type":"stream"}],"execution_count":21},{"cell_type":"markdown","source":"👉 **Then we bring the agents together under a parallel agent, which is itself nested inside of a sequential agent.**\n\nThis design ensures that the research agents run first in parallel, then once all of their research is complete, the aggregator agent brings together all of the research findings into a single report:","metadata":{}},{"cell_type":"code","source":"# The ParallelAgent runs all its sub-agents simultaneously.\nparallel_research_team = ParallelAgent(\n    name=\"ParallelResearchTeam\",\n    sub_agents=[tech_researcher, health_researcher, finance_researcher],\n)\n\n# This SequentialAgent defines the high-level workflow: run the parallel team first, then run the aggregator.\nroot_agent = SequentialAgent(\n    name=\"ResearchSystem\",\n    sub_agents=[parallel_research_team, aggregator_agent],\n)\n\nprint(\"✅ Parallel and Sequential Agents created.\")","metadata":{"id":"GBhNDWZ9BtHE","outputId":"6fe3ae39-c6dc-4924-ab5f-59a58f09a8b5","trusted":true,"execution":{"iopub.status.busy":"2025-11-11T16:21:02.567144Z","iopub.execute_input":"2025-11-11T16:21:02.567419Z","iopub.status.idle":"2025-11-11T16:21:02.572926Z","shell.execute_reply.started":"2025-11-11T16:21:02.567402Z","shell.execute_reply":"2025-11-11T16:21:02.572090Z"}},"outputs":[{"name":"stdout","text":"✅ Parallel and Sequential Agents created.\n","output_type":"stream"}],"execution_count":22},{"cell_type":"markdown","source":"Let's run the agent and give it a prompt to research the given topics:","metadata":{}},{"cell_type":"code","source":"runner = InMemoryRunner(agent=root_agent)\nresponse = await runner.run_debug(\n    \"Run the daily executive briefing on Tech, Health, and Finance\"\n)","metadata":{"trusted":true,"execution":{"iopub.status.busy":"2025-11-11T16:21:05.514205Z","iopub.execute_input":"2025-11-11T16:21:05.514472Z","iopub.status.idle":"2025-11-11T16:21:12.387384Z","shell.execute_reply.started":"2025-11-11T16:21:05.514456Z","shell.execute_reply":"2025-11-11T16:21:12.386373Z"}},"outputs":[{"name":"stdout","text":"\n ### Created new session: debug_session_id\n\nUser > Run the daily executive briefing on Tech, Health, and Finance\nTechResearcher > **Key AI/ML Trends and Their Impact**\n\nThree significant AI/ML trends are shaping industries in 2025:\n\n1.  **Generative AI:** This trend focuses on AI creating novel content like text, images, video, and music. Companies like Google (with models such as Imagen and Muse) and OpenAI (GPT models) are at the forefront. Its impact is transformative for content creation, artistic expression, and practical applications across marketing and design.\n\n2.  **Explainable AI (XAI):** As AI becomes more pervasive, transparency in its decision-making is crucial. XAI aims to make AI systems understandable, fostering trust and meeting regulatory requirements, especially in sensitive sectors like healthcare and finance.\n\n3.  **AI-driven Automation:** AI is increasingly used to automate complex tasks and processes, boosting productivity and efficiency. This is evident in manufacturing, where AI optimizes workflows and enables predictive maintenance. Companies like Microsoft and Google are major players in developing AI solutions for automation.\n\n**Companies Involved:** Major players driving these trends include Google, OpenAI, Microsoft, and other tech giants investing heavily in AI research and development.\n\n**Potential Impact:** These advancements promise to revolutionize various sectors by enhancing productivity, creating new forms of content and interaction, improving decision-making, and ensuring greater transparency and ethical AI deployment.\nHealthResearcher > **Medical Breakthroughs:**\n\n1.  **Gene Therapy for Inherited Hearing Loss:** A groundbreaking gene therapy has enabled a deaf child to hear for the first time by delivering functioning OTOF genes to the inner ear. This advancement offers hope for treating other inherited genetic diseases. Applications are immediate, with further development anticipated within 1-5 years.\n2.  **CAR T-Cell Therapy for Brain Cancer:** Re-engineering a patient's immune cells (CAR T-cell therapy) shows promise in treating brain cancers. Early studies indicate benefits in pediatric and adult glioblastoma patients, potentially offering new treatment avenues within 3-7 years.\n3.  **AI-Enhanced Medical Diagnostics:** Artificial intelligence is revolutionizing diagnostics, improving the accuracy of mammograms and aiding in early detection and treatment of heart conditions. These AI applications are being integrated into clinical practice now, with rapid expansion expected in the next 1-3 years.\n\n**Technology Breakthroughs:**\n\n1.  **Agentic AI:** Autonomous AI agents capable of independent task execution are emerging, acting as \"virtual coworkers\" for complex workflows. This technology is rapidly developing, with widespread adoption expected within 2-5 years.\n2.  **Post-Quantum Cryptography (PQC):** As quantum computing advances, PQC is crucial for securing data against future quantum decryption threats. Development is ongoing, with practical implementation expected within 5-10 years.\n3.  **Spatial Computing:** Merging physical and digital worlds through AR/VR, IoT, and AI, spatial computing is poised for significant growth. Applications in education, retail, and healthcare are projected to expand, with substantial market growth anticipated by 2033.\n\n**Finance Breakthroughs:**\n\n1.  **AI and Machine Learning in Finance:** AI and ML are transforming risk assessment, user experience, and underwriting processes, enabling real-time decisions and improved fraud detection. These technologies are actively being implemented, with further integration expected within 1-3 years.\n2.  **Blockchain for Digital Bonds:** The development of blockchain-based platforms for digital bond issuance offers enhanced transparency, reduced costs, and improved data reliability. Adoption is growing, with wider implementation expected within 3-7 years.\n3.  **Digital and Central Bank Currencies:** The rise of digital currencies and central bank digital currencies (CBDCs) is reshaping financial transactions and services. Their development and implementation are ongoing, with significant impact anticipated in the next 5-10 years.\nFinanceResearcher > Here's your executive briefing on current trends in Tech, Health, and Finance:\n\n**Fintech:**\n*   **Key Trend:** The increasing adoption of emerging payment technologies and AI for fraud reduction.\n*   **Market Implications:** This drives greater efficiency and security in transactions. Pay-by-bank services and stablecoin usage are growing, indicating a shift from traditional methods.\n*   **Future Outlook:** Expect continued innovation in payment systems and a strong focus on combating sophisticated fraud, making financial services more accessible and secure.\n\n**Tech:**\n*   **Key Trend:** The rise of \"Agentic AI\" and the convergence of AI with other technologies like robotics and biotech.\n*   **Market Implications:** This leads to increasingly autonomous systems capable of complex tasks. Significant investment is flowing into AI and related fields, signaling a major technological shift.\n*   **Future Outlook:** AI will become more integrated into business operations, driving automation and creating new capabilities, while also necessitating adaptation in the workforce.\n\n**Health:**\n*   **Key Trend:** AI-driven diagnostics, telemedicine, and enhanced cybersecurity are revolutionizing healthcare.\n*   **Market Implications:** These trends aim to improve patient outcomes, reduce costs, and ensure data security. The global healthcare IT market is experiencing substantial growth.\n*   **Future Outlook:** Healthcare will become more personalized, accessible, and efficient, with a continued emphasis on leveraging technology to predict and prevent diseases.\nAggregatorAgent > ## Executive Summary: Tech, Health, and Finance Briefing\n\nThe convergence of **Artificial Intelligence (AI)** across technology, health, and finance is the defining trend. In **technology**, generative AI is revolutionizing content creation, while agentic AI is enabling autonomous systems and complex task execution. This AI-driven automation is also boosting productivity in manufacturing and optimizing processes.\n\nIn **health**, AI is enhancing diagnostics, leading to earlier disease detection and improved patient outcomes. Alongside this, groundbreaking gene and cell therapies are offering new hope for previously untreatable conditions, with applications rapidly moving towards clinical reality.\n\n**Finance** is being transformed by AI and machine learning for enhanced risk assessment, fraud detection, and improved user experiences. Emerging payment technologies and blockchain for digital bonds are increasing efficiency and transparency, while digital currencies are reshaping transactions.\n\nA key commonality is the increasing demand for **transparency and security**, highlighted by Explainable AI (XAI) in tech and the development of Post-Quantum Cryptography. The overarching takeaway is a future increasingly shaped by intelligent, autonomous systems that are enhancing capabilities, improving efficiency, and promising personalized solutions across all sectors, while simultaneously raising critical questions about ethical deployment and data security.\n","output_type":"stream"}],"execution_count":23},{"cell_type":"markdown","source":"🎉 Great! You've seen how parallel agents can dramatically speed up workflows by running independent tasks concurrently.\n\nSo far, all our workflows run from start to finish and then stop. **But what if you need to review and improve an output multiple times?** Next, we'll build a workflow that can loop and refine its own work.","metadata":{}},{"cell_type":"markdown","source":"---\n## ➰ Section 5: Loop Workflows - The Refinement Cycle\n\n**The Problem: One-Shot Quality**\n\nAll the workflows we've seen so far run from start to finish. The `SequentialAgent` and `ParallelAgent` produce their final output and then stop. This 'one-shot' approach isn't good for tasks that require refinement and quality control. What if the first draft of our story is bad? We have no way to review it and ask for a rewrite.\n\n**The Solution: Iterative Refinement**\n\nWhen a task needs to be improved through cycles of feedback and revision, you can use a `LoopAgent`. A `LoopAgent` runs a set of sub-agents repeatedly *until a specific condition is met or a maximum number of iterations is reached.* This creates a refinement cycle, allowing the agent system to improve its own work over and over.\n\n**Use Loop when:** Iterative improvement is needed, quality refinement matters, or you need repeated cycles.\n\nTo learn more, check out the documentation related to [loop agents in ADK](https://google.github.io/adk-docs/agents/workflow-agents/loop-agents/).\n\n**Architecture: Story Writing & Critique Loop**\n\n<!--\n```mermaid\ngraph TD\n    A[\"Initial Prompt\"] -- > B[\"Writer Agent\"]\n    B -- >|story| C[\"Critic Agent\"]\n    C -- >|critique| D{\"Iteration < Max<br>AND<br>Not Approved?\"}\n    D -- >|Yes| B\n    D -- >|No| E[\"Final Story\"]\n\n    style B fill:#ccffcc\n    style C fill:#ffcccc\n    style D fill:#ffffcc\n```\n-->","metadata":{"id":"fP4I3mvtBtHF"}},{"cell_type":"markdown","source":"<img width=\"250\" src=\"https://storage.googleapis.com/github-repo/kaggle-5days-ai/day1/loop-agent.png\" alt=\"Loop Agent\" />","metadata":{}},{"cell_type":"markdown","source":"### 5.1 Example: Iterative Story Refinement\n\nLet's build a system with two agents:\n\n1. **Writer Agent** - Writes a draft of a short story\n2. **Critic Agent** - Reviews and critiques the short story to suggest improvements","metadata":{"id":"fP4I3mvtBtHF"}},{"cell_type":"code","source":"# This agent runs ONCE at the beginning to create the first draft.\ninitial_writer_agent = Agent(\n    name=\"InitialWriterAgent\",\n    model=Gemini(\n        model=\"gemini-2.5-flash-lite\",\n        retry_options=retry_config\n    ),\n    instruction=\"\"\"Based on the user's prompt, write the first draft of a short story (around 100-150 words).\n    Output only the story text, with no introduction or explanation.\"\"\",\n    output_key=\"current_story\",  # Stores the first draft in the state.\n)\n\nprint(\"✅ initial_writer_agent created.\")","metadata":{"id":"a2b8WlJoBtHF","outputId":"13ed1e15-dcf9-4e1d-ad1e-fb18ee793de5","trusted":true,"execution":{"iopub.status.busy":"2025-11-11T16:23:20.795145Z","iopub.execute_input":"2025-11-11T16:23:20.795447Z","iopub.status.idle":"2025-11-11T16:23:20.801340Z","shell.execute_reply.started":"2025-11-11T16:23:20.795431Z","shell.execute_reply":"2025-11-11T16:23:20.800367Z"}},"outputs":[{"name":"stdout","text":"✅ initial_writer_agent created.\n","output_type":"stream"}],"execution_count":24},{"cell_type":"code","source":"# This agent's only job is to provide feedback or the approval signal. It has no tools.\ncritic_agent = Agent(\n    name=\"CriticAgent\",\n    model=Gemini(\n        model=\"gemini-2.5-flash-lite\",\n        retry_options=retry_config\n    ),\n    instruction=\"\"\"You are a constructive story critic. Review the story provided below.\n    Story: {current_story}\n    \n    Evaluate the story's plot, characters, and pacing.\n    - If the story is well-written and complete, you MUST respond with the exact phrase: \"APPROVED\"\n    - Otherwise, provide 2-3 specific, actionable suggestions for improvement.\"\"\",\n    output_key=\"critique\",  # Stores the feedback in the state.\n)\n\nprint(\"✅ critic_agent created.\")","metadata":{"id":"a2b8WlJoBtHF","outputId":"13ed1e15-dcf9-4e1d-ad1e-fb18ee793de5","trusted":true,"execution":{"iopub.status.busy":"2025-11-11T16:23:43.818508Z","iopub.execute_input":"2025-11-11T16:23:43.818829Z","iopub.status.idle":"2025-11-11T16:23:43.825496Z","shell.execute_reply.started":"2025-11-11T16:23:43.818811Z","shell.execute_reply":"2025-11-11T16:23:43.824172Z"}},"outputs":[{"name":"stdout","text":"✅ critic_agent created.\n","output_type":"stream"}],"execution_count":25},{"cell_type":"markdown","source":"Now, we need a way for the loop to actually stop based on the critic's feedback. The `LoopAgent` itself doesn't automatically know that \"APPROVED\" means \"stop.\"\n\nWe need an agent to give it an explicit signal to terminate the loop.\n\nWe do this in two parts:\n\n1. A simple Python function that the `LoopAgent` understands as an \"exit\" signal.\n2. An agent that can call that function when the right condition is met.\n\nFirst, you'll define the `exit_loop` function:","metadata":{}},{"cell_type":"code","source":"# This is the function that the RefinerAgent will call to exit the loop.\ndef exit_loop():\n    \"\"\"Call this function ONLY when the critique is 'APPROVED', indicating the story is finished and no more changes are needed.\"\"\"\n    return {\"status\": \"approved\", \"message\": \"Story approved. Exiting refinement loop.\"}\n\n\nprint(\"✅ exit_loop function created.\")","metadata":{"id":"a2b8WlJoBtHF","outputId":"13ed1e15-dcf9-4e1d-ad1e-fb18ee793de5","trusted":true,"execution":{"iopub.status.busy":"2025-11-11T16:24:29.753949Z","iopub.execute_input":"2025-11-11T16:24:29.754950Z","iopub.status.idle":"2025-11-11T16:24:29.759260Z","shell.execute_reply.started":"2025-11-11T16:24:29.754911Z","shell.execute_reply":"2025-11-11T16:24:29.758570Z"}},"outputs":[{"name":"stdout","text":"✅ exit_loop function created.\n","output_type":"stream"}],"execution_count":26},{"cell_type":"markdown","source":"To let an agent call this Python function, we wrap it in a `FunctionTool`. Then, we create a `RefinerAgent` that has this tool.\n\n👉 **Notice its instructions:** this agent is the \"brain\" of the loop. It reads the `{critique}` from the `CriticAgent` and decides whether to (1) call the `exit_loop` tool or (2) rewrite the story.","metadata":{}},{"cell_type":"code","source":"# This agent refines the story based on critique OR calls the exit_loop function.\nrefiner_agent = Agent(\n    name=\"RefinerAgent\",\n    model=Gemini(\n        model=\"gemini-2.5-flash-lite\",\n        retry_options=retry_config\n    ),\n    instruction=\"\"\"You are a story refiner. You have a story draft and critique.\n    \n    Story Draft: {current_story}\n    Critique: {critique}\n    \n    Your task is to analyze the critique.\n    - IF the critique is EXACTLY \"APPROVED\", you MUST call the `exit_loop` function and nothing else.\n    - OTHERWISE, rewrite the story draft to fully incorporate the feedback from the critique.\"\"\",\n    output_key=\"current_story\",  # It overwrites the story with the new, refined version.\n    tools=[\n        FunctionTool(exit_loop)\n    ],  # The tool is now correctly initialized with the function reference.\n)\n\nprint(\"✅ refiner_agent created.\")","metadata":{"id":"a2b8WlJoBtHF","outputId":"13ed1e15-dcf9-4e1d-ad1e-fb18ee793de5","trusted":true,"execution":{"iopub.status.busy":"2025-11-11T16:26:10.514107Z","iopub.execute_input":"2025-11-11T16:26:10.514407Z","iopub.status.idle":"2025-11-11T16:26:10.521276Z","shell.execute_reply.started":"2025-11-11T16:26:10.514390Z","shell.execute_reply":"2025-11-11T16:26:10.520356Z"}},"outputs":[{"name":"stdout","text":"✅ refiner_agent created.\n","output_type":"stream"}],"execution_count":27},{"cell_type":"markdown","source":"Then we bring the agents together under a loop agent, which is itself nested inside of a sequential agent.\n\nThis design ensures that the system first produces an initial story draft, then the refinement loop runs up to the specified number of `max_iterations`:","metadata":{}},{"cell_type":"code","source":"# The LoopAgent contains the agents that will run repeatedly: Critic -> Refiner.\nstory_refinement_loop = LoopAgent(\n    name=\"StoryRefinementLoop\",\n    sub_agents=[critic_agent, refiner_agent],\n    max_iterations=2,  # Prevents infinite loops\n)\n\n# The root agent is a SequentialAgent that defines the overall workflow: Initial Write -> Refinement Loop.\nroot_agent = SequentialAgent(\n    name=\"StoryPipeline\",\n    sub_agents=[initial_writer_agent, story_refinement_loop],\n)\n\nprint(\"✅ Loop and Sequential Agents created.\")","metadata":{"id":"a2b8WlJoBtHF","outputId":"13ed1e15-dcf9-4e1d-ad1e-fb18ee793de5","trusted":true,"execution":{"iopub.status.busy":"2025-11-11T16:30:15.786165Z","iopub.execute_input":"2025-11-11T16:30:15.786438Z","iopub.status.idle":"2025-11-11T16:30:15.791470Z","shell.execute_reply.started":"2025-11-11T16:30:15.786423Z","shell.execute_reply":"2025-11-11T16:30:15.790749Z"}},"outputs":[{"name":"stdout","text":"✅ Loop and Sequential Agents created.\n","output_type":"stream"}],"execution_count":28},{"cell_type":"markdown","source":"Let's run the agent and give it a topic to write a short story about:","metadata":{}},{"cell_type":"code","source":"runner = InMemoryRunner(agent=root_agent)\nresponse = await runner.run_debug(\n    \"Write a short story about a lighthouse keeper who discovers a mysterious, glowing map\"\n)","metadata":{"trusted":true,"execution":{"iopub.status.busy":"2025-11-11T16:30:38.721231Z","iopub.execute_input":"2025-11-11T16:30:38.721859Z","iopub.status.idle":"2025-11-11T16:30:46.892068Z","shell.execute_reply.started":"2025-11-11T16:30:38.721840Z","shell.execute_reply":"2025-11-11T16:30:46.890227Z"}},"outputs":[{"name":"stdout","text":"\n ### Created new session: debug_session_id\n\nUser > Write a short story about a lighthouse keeper who discovers a mysterious, glowing map\nInitialWriterAgent > Elias adjusted his spectacles, the lamplight glinting off the glass. For thirty years, the lonely tower of Blackrock Point had been his domain. Tonight, however, was different. While polishing the brass of the Fresnel lens, his cloth snagged on a loose panel. Behind it, nestled in a velvet-lined alcove, lay a rolled parchment.\n\nUnfurling it, Elias gasped. It wasn't paper, but some sort of luminous vellum, etched with intricate lines that pulsed with an ethereal blue glow. Strange symbols, unlike any he’d ever seen, marked out coastlines that were vaguely familiar, yet distorted. A shimmering 'X' pulsed near a jagged, uncharted island. The map felt warm to the touch, humming with an energy that sent a shiver down his spine. His quiet life on Blackrock Point had just taken a sudden, radiant turn.\nCriticAgent > The story has a strong hook and sets up an intriguing mystery, but it could benefit from a bit more development.\n\nHere are a few suggestions:\n\n1.  **Elaborate on Elias's character:** While we know he's been a lighthouse keeper for thirty years, giving a glimpse into his personality or his feelings about his solitary life would make his discovery more impactful. Is he content, bored, longing for adventure? Even a small detail could add depth.\n2.  **Enhance the sensory details of the map:** You've done a good job describing its luminous vellum and pulsing glow. Consider adding another sensory detail – perhaps a faint, unusual scent, or a subtle sound it emits beyond the hum – to make it even more otherworldly and captivating.\n3.  **Hint at the potential implications of the map:** The story ends with Elias's life taking a \"sudden, radiant turn.\" To make the ending more satisfying for a short piece, you could add a brief sentence that hints at what that turn might entail. For example, does he feel a pull towards the uncharted island, or does the map seem to communicate a specific purpose?\nRefinerAgent > Elias adjusted his spectacles, the lamplight glinting off the glass. For thirty years, the lonely tower of Blackrock Point had been his domain. He’d grown accustomed to the rhythmic sweep of the beam, the mournful cry of gulls, and the profound, quiet solitude. Content, mostly, though a part of him sometimes ached for a horizon broader than the one he guarded. Tonight, however, was different. While polishing the brass of the Fresnel lens, his cloth snagged on a loose panel. Behind it, nestled in a velvet-lined alcove, lay a rolled parchment.\n\nUnfurling it, Elias gasped. It wasn't paper, but some sort of luminous vellum, etched with intricate lines that pulsed with an ethereal blue glow. Strange symbols, unlike any he’d ever seen, marked out coastlines that were vaguely familiar, yet distorted. A shimmering 'X' pulsed near a jagged, uncharted island. The map felt warm to the touch, humming with an energy that sent a shiver down his spine. A faint scent, like ozone and sea salt after a storm, tickled his nostrils, and a series of soft, melodic chimes seemed to emanate from the vellum itself. As Elias gazed at the pulsing 'X', he felt an undeniable, magnetic pull, a silent invitation to an adventure he'd only ever dreamed of. His quiet life on Blackrock Point had just taken a sudden, radiant turn, and the uncharted island beckoned.\nCriticAgent > APPROVED\n","output_type":"stream"},{"name":"stderr","text":"WARNING:google_genai.types:Warning: there are non-text parts in the response: ['function_call'], returning concatenated text result from text parts. Check the full candidates.content.parts accessor to get the full model response.\n","output_type":"stream"}],"execution_count":29},{"cell_type":"markdown","source":"You've now implemented a loop agent, creating a sophisticated system that can iteratively review and improve its own output. This is a key pattern for ensuring high-quality results.\n\nYou now have a complete toolkit of workflow patterns. Let's put it all together and review how to choose the right one for your use case.","metadata":{}},{"cell_type":"markdown","source":"--- \n## Section 6: Summary - Choosing the Right Pattern\n\n### Decision Tree: Which Workflow Pattern?\n\n<!--\n```mermaid\ngraph TD\n    A{\"What kind of workflow do you need?\"} -- > B[\"Fixed Pipeline<br>(A → B → C)\"];\n    A -- > C[\"Concurrent Tasks<br>(Run A, B, C all at once)\"];\n    A -- > D[\"Iterative Refinement<br>(A ⇆ B)\"];\n    A -- > E[\"Dynamic Decisions<br>(Let the LLM decide what to do)\"];\n\n    B -- > B_S[\"Use <b>SequentialAgent</b>\"];\n    C -- > C_S[\"Use <b>ParallelAgent</b>\"];\n    D -- > D_S[\"Use <b>LoopAgent</b>\"];\n    E -- > E_S[\"Use <b>LLM Orchestrator</b><br>(Agent with other agents as tools)\"];\n\n    style B_S fill:#f9f,stroke:#333,stroke-width:2px\n    style C_S fill:#ccf,stroke:#333,stroke-width:2px\n    style D_S fill:#cff,stroke:#333,stroke-width:2px\n    style E_S fill:#cfc,stroke:#333,stroke-width:2px\n```\n-->","metadata":{"id":"-CKnXSHWBtHF"}},{"cell_type":"markdown","source":"<img width=\"1000\" src=\"https://storage.googleapis.com/github-repo/kaggle-5days-ai/day1/agent-decision-tree.png\" alt=\"Agent Decision Tree\" />","metadata":{}},{"cell_type":"markdown","source":"### Quick Reference Table\n\n| Pattern | When to Use | Example | Key Feature |\n|---------|-------------|---------|-------------|\n| **LLM-based (sub_agents)** | Dynamic orchestration needed | Research + Summarize | LLM decides what to call |\n| **Sequential** | Order matters, linear pipeline | Outline → Write → Edit | Deterministic order |\n| **Parallel** | Independent tasks, speed matters | Multi-topic research | Concurrent execution |\n| **Loop** | Iterative improvement needed | Writer + Critic refinement | Repeated cycles |","metadata":{"id":"-CKnXSHWBtHF","jp-MarkdownHeadingCollapsed":true}},{"cell_type":"markdown","source":"---\n\n## ✅ Congratulations! You're Now an Agent Orchestrator\n\nIn this notebook, you made the leap from a single agent to a **multi-agent system**.\n\nYou saw **why** a team of specialists is easier to build and debug than one \"do-it-all\" agent. Most importantly, you learned how to be the **director** of that team.\n\nYou used `SequentialAgent`, `ParallelAgent`, and `LoopAgent` to create deterministic workflows, and you even used an LLM as a 'manager' to make dynamic decisions. You also mastered the \"plumbing\" by using `output_key` to pass state between agents and make them collaborative.\n\n**ℹ️ Note: No submission required!**\n\nThis notebook is for your hands-on practice and learning only. You **do not** need to submit it anywhere to complete the course.\n\n### 📚 Learn More\n\nRefer to the following documentation to learn more:\n\n- [Agents in ADK](https://google.github.io/adk-docs/agents/)\n- [Sequential Agents in ADK](https://google.github.io/adk-docs/agents/workflow-agents/sequential-agents/)\n- [Parallel Agents in ADK](https://google.github.io/adk-docs/agents/workflow-agents/parallel-agents/)\n- [Loop Agents in ADK](https://google.github.io/adk-docs/agents/workflow-agents/loop-agents/)\n- [Custom Agents in ADK](https://google.github.io/adk-docs/agents/custom-agents/)\n\n### 🎯 Next Steps\n\nReady for the next challenge? Stay tuned for Day 2 notebooks where we'll learn how to create **Custom Functions, use MCP Tools** and manage **Long-Running operations!**","metadata":{}},{"cell_type":"markdown","source":"---\n\n| Authors |\n| --- |\n| [Kristopher Overholt](https://www.linkedin.com/in/koverholt) |","metadata":{}}]}
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "id": "1acab99a",
+   "metadata": {
+    "papermill": {
+     "duration": 0.010001,
+     "end_time": "2025-11-11T16:33:15.456567",
+     "exception": false,
+     "start_time": "2025-11-11T16:33:15.446566",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "##### Copyright 2025 Google LLC."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 1,
+   "id": "0e610049",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-11-11T16:33:15.475331Z",
+     "iopub.status.busy": "2025-11-11T16:33:15.474966Z",
+     "iopub.status.idle": "2025-11-11T16:33:15.480363Z",
+     "shell.execute_reply": "2025-11-11T16:33:15.479469Z"
+    },
+    "papermill": {
+     "duration": 0.01665,
+     "end_time": "2025-11-11T16:33:15.481949",
+     "exception": false,
+     "start_time": "2025-11-11T16:33:15.465299",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "# @title Licensed under the Apache License, Version 2.0 (the \"License\");\n",
+    "# you may not use this file except in compliance with the License.\n",
+    "# You may obtain a copy of the License at\n",
+    "#\n",
+    "# https://www.apache.org/licenses/LICENSE-2.0\n",
+    "#\n",
+    "# Unless required by applicable law or agreed to in writing, software\n",
+    "# distributed under the License is distributed on an \"AS IS\" BASIS,\n",
+    "# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n",
+    "# See the License for the specific language governing permissions and\n",
+    "# limitations under the License."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "8fb22306",
+   "metadata": {
+    "papermill": {
+     "duration": 0.008419,
+     "end_time": "2025-11-11T16:33:15.499107",
+     "exception": false,
+     "start_time": "2025-11-11T16:33:15.490688",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "# 🚀 Multi-Agent Systems & Workflow Patterns\n",
+    "\n",
+    "**Welcome to the Kaggle 5-day Agents course!**\n",
+    "\n",
+    "In the previous notebook, you built a **single agent** that could take action. Now, you'll learn how to scale up by building **agent teams**.\n",
+    "\n",
+    "Just like a team of people, you can create specialized agents that collaborate to solve complex problems. This is called a **multi-agent system**, and it's one of the most powerful concepts in AI agent development.\n",
+    "\n",
+    "In this notebook, you'll:\n",
+    "\n",
+    "- ✅ Learn when to use multi-agent systems in [Agent Development Kit (ADK)](https://google.github.io/adk-docs/)\n",
+    "- ✅ Build your first system using an LLM as a \"manager\"\n",
+    "- ✅ Learn three core workflow patterns (Sequential, Parallel, and Loop) to coordinate your agent teams\n",
+    "\n",
+    "## ‼️ Please Read\n",
+    "\n",
+    "> ❌ **ℹ️ Note: No submission required!**\n",
+    "> This notebook is for your hands-on practice and learning only. You **do not** need to submit it anywhere to complete the course.\n",
+    "\n",
+    "> ⏸️ **Note:**  When you first start the notebook via running a cell you might see a banner in the notebook header that reads **\"Waiting for the next available notebook\"**. The queue should drop rapidly; however, during peak bursts you might have to wait a few minutes.\n",
+    "\n",
+    "> ❌ **Note:** Avoid using the **Run all** cells command as this can trigger a QPM limit resulting in 429 errors when calling the backing model. Suggested flow is to run each cell in order - one at a time. [See FAQ on 429 errors for more information.](https://www.kaggle.com/code/kaggle5daysofai/day-0-troubleshooting-and-faqs)\n",
+    "\n",
+    "**For help: Ask questions on the [Kaggle Discord](https://discord.com/invite/kaggle) server.**"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "83a23553",
+   "metadata": {
+    "papermill": {
+     "duration": 0.008919,
+     "end_time": "2025-11-11T16:33:15.516674",
+     "exception": false,
+     "start_time": "2025-11-11T16:33:15.507755",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "## 📖 Get started with Kaggle Notebooks\n",
+    "\n",
+    "If this is your first time using Kaggle Notebooks, welcome! You can learn more about using Kaggle Notebooks [in the documentation](https://www.kaggle.com/docs/notebooks).\n",
+    "\n",
+    "Here's how to get started:\n",
+    "\n",
+    "**1. Verify Your Account (Required)**\n",
+    "\n",
+    "To use the Kaggle Notebooks in this course, you'll need to verify your account with a phone number.\n",
+    "\n",
+    "You can do this in your [Kaggle settings](https://www.kaggle.com/settings).\n",
+    "\n",
+    "**2. Make Your Own Copy**\n",
+    "\n",
+    "To run any code in this notebook, you first need your own editable copy.\n",
+    "\n",
+    "Click the `Copy and Edit` button in the top-right corner.\n",
+    "\n",
+    "![Copy and Edit button](https://storage.googleapis.com/kaggle-media/Images/5gdai_sc_1.png)\n",
+    "\n",
+    "This creates a private copy of the notebook just for you.\n",
+    "\n",
+    "**3. Run Code Cells**\n",
+    "\n",
+    "Once you have your copy, you can run code.\n",
+    "\n",
+    "Click the ▶️ Run button next to any code cell to execute it.\n",
+    "\n",
+    "![Run cell button](https://storage.googleapis.com/kaggle-media/Images/5gdai_sc_2.png)\n",
+    "\n",
+    "Run the cells in order from top to bottom.\n",
+    "\n",
+    "**4. If You Get Stuck**\n",
+    "\n",
+    "To restart: Select `Factory reset` from the `Run` menu.\n",
+    "\n",
+    "For help: Ask questions on the [Kaggle Discord](https://discord.com/invite/kaggle) server."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "5ed64105",
+   "metadata": {
+    "papermill": {
+     "duration": 0.008433,
+     "end_time": "2025-11-11T16:33:15.533562",
+     "exception": false,
+     "start_time": "2025-11-11T16:33:15.525129",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "## ⚙️ Section 1: Setup\n",
+    "\n",
+    "### 1.1: Install dependencies\n",
+    "\n",
+    "The Kaggle Notebooks environment includes a pre-installed version of the [google-adk](https://google.github.io/adk-docs/) library for Python and its required dependencies, so you don't need to install additional packages in this notebook.\n",
+    "\n",
+    "To install and use ADK in your own Python development environment outside of this course, you can do so by running:\n",
+    "\n",
+    "```\n",
+    "pip install google-adk\n",
+    "```"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "62bb64a2",
+   "metadata": {
+    "papermill": {
+     "duration": 0.008413,
+     "end_time": "2025-11-11T16:33:15.550531",
+     "exception": false,
+     "start_time": "2025-11-11T16:33:15.542118",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "### 1.2: Configure your Gemini API Key\n",
+    "\n",
+    "This notebook uses the [Gemini API](https://ai.google.dev/gemini-api/docs), which requires authentication.\n",
+    "\n",
+    "**1. Get your API key**\n",
+    "\n",
+    "If you don't have one already, create an [API key in Google AI Studio](https://aistudio.google.com/app/api-keys).\n",
+    "\n",
+    "**2. Add the key to Kaggle Secrets**\n",
+    "\n",
+    "Next, you will need to add your API key to your Kaggle Notebook as a Kaggle User Secret.\n",
+    "\n",
+    "1. In the top menu bar of the notebook editor, select `Add-ons` then `Secrets`.\n",
+    "2. Create a new secret with the label `GOOGLE_API_KEY`.\n",
+    "3. Paste your API key into the \"Value\" field and click \"Save\".\n",
+    "4. Ensure that the checkbox next to `GOOGLE_API_KEY` is selected so that the secret is attached to the notebook.\n",
+    "\n",
+    "**3. Authenticate in the notebook**\n",
+    "\n",
+    "Run the cell below to complete authentication."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 2,
+   "id": "e1649a12",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-11-11T16:33:15.569096Z",
+     "iopub.status.busy": "2025-11-11T16:33:15.568795Z",
+     "iopub.status.idle": "2025-11-11T16:33:15.737901Z",
+     "shell.execute_reply": "2025-11-11T16:33:15.736084Z"
+    },
+    "papermill": {
+     "duration": 0.180539,
+     "end_time": "2025-11-11T16:33:15.739615",
+     "exception": false,
+     "start_time": "2025-11-11T16:33:15.559076",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "✅ Gemini API key setup complete.\n"
+     ]
+    }
+   ],
+   "source": [
+    "import os\n",
+    "from kaggle_secrets import UserSecretsClient\n",
+    "\n",
+    "try:\n",
+    "    GOOGLE_API_KEY = UserSecretsClient().get_secret(\"GOOGLE_API_KEY\")\n",
+    "    os.environ[\"GOOGLE_API_KEY\"] = GOOGLE_API_KEY\n",
+    "    print(\"✅ Gemini API key setup complete.\")\n",
+    "except Exception as e:\n",
+    "    print(\n",
+    "        f\"🔑 Authentication Error: Please make sure you have added 'GOOGLE_API_KEY' to your Kaggle secrets. Details: {e}\"\n",
+    "    )"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "b4bd0855",
+   "metadata": {
+    "papermill": {
+     "duration": 0.0104,
+     "end_time": "2025-11-11T16:33:15.758884",
+     "exception": false,
+     "start_time": "2025-11-11T16:33:15.748484",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "### 1.3: Import ADK components\n",
+    "\n",
+    "Now, import the specific components you'll need from the Agent Development Kit and the Generative AI library. This keeps your code organized and ensures we have access to the necessary building blocks."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 3,
+   "id": "e8477e14",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-11-11T16:33:15.778621Z",
+     "iopub.status.busy": "2025-11-11T16:33:15.778251Z",
+     "iopub.status.idle": "2025-11-11T16:34:04.260326Z",
+     "shell.execute_reply": "2025-11-11T16:34:04.259429Z"
+    },
+    "papermill": {
+     "duration": 48.502292,
+     "end_time": "2025-11-11T16:34:04.270659",
+     "exception": false,
+     "start_time": "2025-11-11T16:33:15.768367",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "✅ ADK components imported successfully.\n"
+     ]
+    }
+   ],
+   "source": [
+    "from google.adk.agents import Agent, SequentialAgent, ParallelAgent, LoopAgent\n",
+    "from google.adk.models.google_llm import Gemini\n",
+    "from google.adk.runners import InMemoryRunner\n",
+    "from google.adk.tools import AgentTool, FunctionTool, google_search\n",
+    "from google.genai import types\n",
+    "\n",
+    "print(\"✅ ADK components imported successfully.\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "d75bfb5f",
+   "metadata": {
+    "papermill": {
+     "duration": 0.008711,
+     "end_time": "2025-11-11T16:34:04.288048",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:04.279337",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "### 1.4: Configure Retry Options\n",
+    "\n",
+    "When working with LLMs, you may encounter transient errors like rate limits or temporary service unavailability. Retry options automatically handle these failures by retrying the request with exponential backoff."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 4,
+   "id": "65e7ed87",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-11-11T16:34:04.311014Z",
+     "iopub.status.busy": "2025-11-11T16:34:04.306609Z",
+     "iopub.status.idle": "2025-11-11T16:34:04.315221Z",
+     "shell.execute_reply": "2025-11-11T16:34:04.314324Z"
+    },
+    "papermill": {
+     "duration": 0.020155,
+     "end_time": "2025-11-11T16:34:04.316868",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:04.296713",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "retry_config=types.HttpRetryOptions(\n",
+    "    attempts=5,  # Maximum retry attempts\n",
+    "    exp_base=7,  # Delay multiplier\n",
+    "    initial_delay=1,\n",
+    "    http_status_codes=[429, 500, 503, 504], # Retry on these HTTP errors\n",
+    ")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "cd3bf6e0",
+   "metadata": {
+    "papermill": {
+     "duration": 0.008789,
+     "end_time": "2025-11-11T16:34:04.334594",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:04.325805",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "---\n",
+    "## 🤔 Section 2: Why Multi-Agent Systems? + Your First Multi-Agent"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "57b7c12a",
+   "metadata": {
+    "papermill": {
+     "duration": 0.008808,
+     "end_time": "2025-11-11T16:34:04.351982",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:04.343174",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "**The Problem: The \"Do-It-All\" Agent**\n",
+    "\n",
+    "Single agents can do a lot. But what happens when the task gets complex? A single \"monolithic\" agent that tries to do research, writing, editing, and fact-checking all at once becomes a problem. Its instruction prompt gets long and confusing. It's hard to debug (which part failed?), difficult to maintain, and often produces unreliable results.\n",
+    "\n",
+    "**The Solution: A Team of Specialists**\n",
+    "\n",
+    "Instead of one \"do-it-all\" agent, we can build a **multi-agent system**. This is a team of simple, specialized agents that collaborate, just like a real-world team. Each agent has one clear job (e.g., one agent *only* does research, another *only* writes). This makes them easier to build, easier to test, and much more powerful and reliable when working together.\n",
+    "\n",
+    "To learn more, check out the documentation related to [LLM agents in ADK](https://google.github.io/adk-docs/agents/llm-agents/).\n",
+    "\n",
+    "**Architecture: Single Agent vs Multi-Agent Team**\n",
+    "\n",
+    "<!--\n",
+    "```mermaid\n",
+    "graph TD\n",
+    "    subgraph Single[\"❌ Monolithic Agent\"]\n",
+    "        A[\"One Agent Does Everything\"]\n",
+    "    end\n",
+    "\n",
+    "    subgraph Multi[\"✅ Multi-Agent Team\"]\n",
+    "        B[\"Root Coordinator\"] -- > C[\"Research Specialist\"]\n",
+    "        B -- > E[\"Summary Specialist\"]\n",
+    "\n",
+    "        C -- >|findings| F[\"Shared State\"]\n",
+    "        E -- >|summary| F\n",
+    "    end\n",
+    "\n",
+    "    style A fill:#ffcccc\n",
+    "    style B fill:#ccffcc\n",
+    "    style F fill:#ffffcc\n",
+    "```\n",
+    "-->"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "5c4b9e38",
+   "metadata": {
+    "papermill": {
+     "duration": 0.008699,
+     "end_time": "2025-11-11T16:34:04.369248",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:04.360549",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "<img width=\"800\" src=\"https://storage.googleapis.com/github-repo/kaggle-5days-ai/day1/multi-agent-team.png\" alt=\"Multi-agent Team\" />"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "4ea2fa1b",
+   "metadata": {
+    "papermill": {
+     "duration": 0.008641,
+     "end_time": "2025-11-11T16:34:04.386610",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:04.377969",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "### 2.1 Example: Research & Summarization System\n",
+    "\n",
+    "Let's build a system with two specialized agents:\n",
+    "\n",
+    "1. **Research Agent** - Searches for information using Google Search\n",
+    "2. **Summarizer Agent** - Creates concise summaries from research findings"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 5,
+   "id": "ee26c5d2",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-11-11T16:34:04.405495Z",
+     "iopub.status.busy": "2025-11-11T16:34:04.405072Z",
+     "iopub.status.idle": "2025-11-11T16:34:04.411414Z",
+     "shell.execute_reply": "2025-11-11T16:34:04.410361Z"
+    },
+    "papermill": {
+     "duration": 0.017873,
+     "end_time": "2025-11-11T16:34:04.412952",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:04.395079",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "✅ research_agent created.\n"
+     ]
+    }
+   ],
+   "source": [
+    "# Research Agent: Its job is to use the google_search tool and present findings.\n",
+    "research_agent = Agent(\n",
+    "    name=\"ResearchAgent\",\n",
+    "    model=Gemini(\n",
+    "        model=\"gemini-2.5-flash-lite\",\n",
+    "        retry_options=retry_config\n",
+    "    ),\n",
+    "    instruction=\"\"\"You are a specialized research agent. Your only job is to use the\n",
+    "    google_search tool to find 2-3 pieces of relevant information on the given topic and present the findings with citations.\"\"\",\n",
+    "    tools=[google_search],\n",
+    "    output_key=\"research_findings\",  # The result of this agent will be stored in the session state with this key.\n",
+    ")\n",
+    "\n",
+    "print(\"✅ research_agent created.\")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 6,
+   "id": "dce4ac94",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-11-11T16:34:04.432324Z",
+     "iopub.status.busy": "2025-11-11T16:34:04.432023Z",
+     "iopub.status.idle": "2025-11-11T16:34:04.438057Z",
+     "shell.execute_reply": "2025-11-11T16:34:04.436818Z"
+    },
+    "papermill": {
+     "duration": 0.017722,
+     "end_time": "2025-11-11T16:34:04.439774",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:04.422052",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "✅ summarizer_agent created.\n"
+     ]
+    }
+   ],
+   "source": [
+    "# Summarizer Agent: Its job is to summarize the text it receives.\n",
+    "summarizer_agent = Agent(\n",
+    "    name=\"SummarizerAgent\",\n",
+    "    model=Gemini(\n",
+    "        model=\"gemini-2.5-flash-lite\",\n",
+    "        retry_options=retry_config\n",
+    "    ),\n",
+    "    # The instruction is modified to request a bulleted list for a clear output format.\n",
+    "    instruction=\"\"\"Read the provided research findings: {research_findings}\n",
+    "Create a concise summary as a bulleted list with 3-5 key points.\"\"\",\n",
+    "    output_key=\"final_summary\",\n",
+    ")\n",
+    "\n",
+    "print(\"✅ summarizer_agent created.\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "d4518cf4",
+   "metadata": {
+    "papermill": {
+     "duration": 0.008795,
+     "end_time": "2025-11-11T16:34:04.457626",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:04.448831",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "Refer to the ADK documentation for more information on [guiding agents with clear and specific instructions](https://google.github.io/adk-docs/agents/llm-agents/).\n",
+    "\n",
+    "Then we bring the agents together under a root agent, or coordinator:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 7,
+   "id": "a33ac6eb",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-11-11T16:34:04.477794Z",
+     "iopub.status.busy": "2025-11-11T16:34:04.477482Z",
+     "iopub.status.idle": "2025-11-11T16:34:04.483307Z",
+     "shell.execute_reply": "2025-11-11T16:34:04.482406Z"
+    },
+    "id": "PKthuzRkBtHD",
+    "outputId": "dee6d4cc-17b4-4430-8454-d56096fbe360",
+    "papermill": {
+     "duration": 0.017808,
+     "end_time": "2025-11-11T16:34:04.484790",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:04.466982",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "✅ root_agent created.\n"
+     ]
+    }
+   ],
+   "source": [
+    "# Root Coordinator: Orchestrates the workflow by calling the sub-agents as tools.\n",
+    "root_agent = Agent(\n",
+    "    name=\"ResearchCoordinator\",\n",
+    "    model=Gemini(\n",
+    "        model=\"gemini-2.5-flash-lite\",\n",
+    "        retry_options=retry_config\n",
+    "    ),\n",
+    "    # This instruction tells the root agent HOW to use its tools (which are the other agents).\n",
+    "    instruction=\"\"\"You are a research coordinator. Your goal is to answer the user's query by orchestrating a workflow.\n",
+    "1. First, you MUST call the `ResearchAgent` tool to find relevant information on the topic provided by the user.\n",
+    "2. Next, after receiving the research findings, you MUST call the `SummarizerAgent` tool to create a concise summary.\n",
+    "3. Finally, present the final summary clearly to the user as your response.\"\"\",\n",
+    "    # We wrap the sub-agents in `AgentTool` to make them callable tools for the root agent.\n",
+    "    tools=[AgentTool(research_agent), AgentTool(summarizer_agent)],\n",
+    ")\n",
+    "\n",
+    "print(\"✅ root_agent created.\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "be445870",
+   "metadata": {
+    "papermill": {
+     "duration": 0.00876,
+     "end_time": "2025-11-11T16:34:04.502480",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:04.493720",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "Here we're using `AgentTool` to wrap the sub-agents to make them callable tools for the root agent. We'll explore `AgentTool` in-detail on Day 2.\n",
+    "\n",
+    "Let's run the agent and ask it about a topic:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 8,
+   "id": "ff6fd568",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-11-11T16:34:04.522229Z",
+     "iopub.status.busy": "2025-11-11T16:34:04.521445Z",
+     "iopub.status.idle": "2025-11-11T16:34:14.240724Z",
+     "shell.execute_reply": "2025-11-11T16:34:14.239657Z"
+    },
+    "papermill": {
+     "duration": 9.730996,
+     "end_time": "2025-11-11T16:34:14.242279",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:04.511283",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "\n",
+      " ### Created new session: debug_session_id\n",
+      "\n",
+      "User > What are the latest advancements in quantum computing and what do they mean for AI?\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "WARNING:google_genai.types:Warning: there are non-text parts in the response: ['function_call'], returning concatenated text result from text parts. Check the full candidates.content.parts accessor to get the full model response.\n",
+      "WARNING:google_genai.types:Warning: there are non-text parts in the response: ['function_call'], returning concatenated text result from text parts. Check the full candidates.content.parts accessor to get the full model response.\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "ResearchCoordinator > Here's a summary of the latest advancements in quantum computing and their implications for AI:\n",
+      "\n",
+      "*   **Revolutionary AI Capabilities:** Quantum computing will enable faster, more efficient, and more advanced AI models, capable of tackling complex problems beyond current classical computing limits.\n",
+      "*   **Enhanced Efficiency and Sustainability:** Quantum computing can drastically reduce the energy consumption of training large AI models, making AI development more sustainable.\n",
+      "*   **Progress in Hardware and Algorithms:** Significant strides are being made in developing stable quantum hardware and error correction, alongside algorithms demonstrating \"quantum advantage.\"\n",
+      "*   **Hybrid Future:** A combination of quantum and classical computing is expected to be the near-term approach, integrating quantum benefits with existing infrastructure.\n",
+      "*   **Transformative Potential:** The convergence of quantum computing and AI is anticipated to drive major breakthroughs and growth, leading to revolutionary applications across various industries within the next decade.\n"
+     ]
+    }
+   ],
+   "source": [
+    "runner = InMemoryRunner(agent=root_agent)\n",
+    "response = await runner.run_debug(\n",
+    "    \"What are the latest advancements in quantum computing and what do they mean for AI?\"\n",
+    ")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "f8ebf758",
+   "metadata": {
+    "papermill": {
+     "duration": 0.008876,
+     "end_time": "2025-11-11T16:34:14.260505",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:14.251629",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "You've just built your first multi-agent system! You used a single \"coordinator\" agent to manage the workflow, which is a powerful and flexible pattern.\n",
+    "\n",
+    "‼️ However, **relying on an LLM's instructions to control the order can sometimes be unpredictable.** Next, we'll explore a different pattern that gives you guaranteed, step-by-step execution."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "afb2cd32",
+   "metadata": {
+    "id": "h6Bcds7EBtHE",
+    "papermill": {
+     "duration": 0.009058,
+     "end_time": "2025-11-11T16:34:14.278472",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:14.269414",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "---\n",
+    "\n",
+    "## 🚥 Section 3: Sequential Workflows - The Assembly Line\n",
+    "\n",
+    "**The Problem: Unpredictable Order**\n",
+    "\n",
+    "The previous multi-agent system worked, but it relied on a **detailed instruction prompt** to force the LLM to run steps in order. This can be unreliable. A complex LLM might decide to skip a step, run them in the wrong order, or get \"stuck,\" making the process unpredictable.\n",
+    "\n",
+    "**The Solution: A Fixed Pipeline**\n",
+    "\n",
+    "When you need tasks to happen in a **guaranteed, specific order**, you can use a `SequentialAgent`. This agent acts like an assembly line, running each sub-agent in the exact order you list them. The output of one agent automatically becomes the input for the next, creating a predictable and reliable workflow.\n",
+    "\n",
+    "**Use Sequential when:** Order matters, you need a linear pipeline, or each step builds on the previous one.\n",
+    "\n",
+    "To learn more, check out the documentation related to [sequential agents in ADK](https://google.github.io/adk-docs/agents/workflow-agents/sequential-agents/).\n",
+    "\n",
+    "**Architecture: Blog Post Creation Pipeline**\n",
+    "\n",
+    "<!--\n",
+    "```mermaid\n",
+    "graph LR\n",
+    "    A[\"User Input: Blog about AI\"] -- > B[\"Outline Agent\"]\n",
+    "    B -- >|blog_outline| C[\"Writer Agent\"]\n",
+    "    C -- >|blog_draft| D[\"Editor Agent\"]\n",
+    "    D -- >|final_blog| E[\"Output\"]\n",
+    "\n",
+    "    style B fill:#ffcccc\n",
+    "    style C fill:#ccffcc\n",
+    "    style D fill:#ccccff\n",
+    "```\n",
+    "-->"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "05d392bd",
+   "metadata": {
+    "papermill": {
+     "duration": 0.008963,
+     "end_time": "2025-11-11T16:34:14.296416",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:14.287453",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "<img width=\"1000\" src=\"https://storage.googleapis.com/github-repo/kaggle-5days-ai/day1/sequential-agent.png\" alt=\"Sequential Agent\" />"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "0659eb10",
+   "metadata": {
+    "id": "h6Bcds7EBtHE",
+    "papermill": {
+     "duration": 0.008958,
+     "end_time": "2025-11-11T16:34:14.314491",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:14.305533",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "### 3.1 Example: Blog Post Creation with Sequential Agents\n",
+    "\n",
+    "Let's build a system with three specialized agents:\n",
+    "\n",
+    "1. **Outline Agent** - Creates a blog outline for a given topic\n",
+    "2. **Writer Agent** - Writes a blog post\n",
+    "3. **Editor Agent** - Edits a blog post draft for clarity and structure"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 9,
+   "id": "124c7cba",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-11-11T16:34:14.334482Z",
+     "iopub.status.busy": "2025-11-11T16:34:14.333583Z",
+     "iopub.status.idle": "2025-11-11T16:34:14.339408Z",
+     "shell.execute_reply": "2025-11-11T16:34:14.338446Z"
+    },
+    "id": "TLflGqQVBtHE",
+    "outputId": "b671e4da-e69d-44f0-bf3b-85dc7cb51496",
+    "papermill": {
+     "duration": 0.017536,
+     "end_time": "2025-11-11T16:34:14.340957",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:14.323421",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "✅ outline_agent created.\n"
+     ]
+    }
+   ],
+   "source": [
+    "# Outline Agent: Creates the initial blog post outline.\n",
+    "outline_agent = Agent(\n",
+    "    name=\"OutlineAgent\",\n",
+    "    model=Gemini(\n",
+    "        model=\"gemini-2.5-flash-lite\",\n",
+    "        retry_options=retry_config\n",
+    "    ),\n",
+    "    instruction=\"\"\"Create a blog outline for the given topic with:\n",
+    "    1. A catchy headline\n",
+    "    2. An introduction hook\n",
+    "    3. 3-5 main sections with 2-3 bullet points for each\n",
+    "    4. A concluding thought\"\"\",\n",
+    "    output_key=\"blog_outline\",  # The result of this agent will be stored in the session state with this key.\n",
+    ")\n",
+    "\n",
+    "print(\"✅ outline_agent created.\")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 10,
+   "id": "1fdb3fe4",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-11-11T16:34:14.361895Z",
+     "iopub.status.busy": "2025-11-11T16:34:14.361330Z",
+     "iopub.status.idle": "2025-11-11T16:34:14.367016Z",
+     "shell.execute_reply": "2025-11-11T16:34:14.365921Z"
+    },
+    "id": "TLflGqQVBtHE",
+    "outputId": "b671e4da-e69d-44f0-bf3b-85dc7cb51496",
+    "papermill": {
+     "duration": 0.017862,
+     "end_time": "2025-11-11T16:34:14.368496",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:14.350634",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "✅ writer_agent created.\n"
+     ]
+    }
+   ],
+   "source": [
+    "# Writer Agent: Writes the full blog post based on the outline from the previous agent.\n",
+    "writer_agent = Agent(\n",
+    "    name=\"WriterAgent\",\n",
+    "    model=Gemini(\n",
+    "        model=\"gemini-2.5-flash-lite\",\n",
+    "        retry_options=retry_config\n",
+    "    ),\n",
+    "    # The `{blog_outline}` placeholder automatically injects the state value from the previous agent's output.\n",
+    "    instruction=\"\"\"Following this outline strictly: {blog_outline}\n",
+    "    Write a brief, 200 to 300-word blog post with an engaging and informative tone.\"\"\",\n",
+    "    output_key=\"blog_draft\",  # The result of this agent will be stored with this key.\n",
+    ")\n",
+    "\n",
+    "print(\"✅ writer_agent created.\")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 11,
+   "id": "d1aaf2fb",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-11-11T16:34:14.388534Z",
+     "iopub.status.busy": "2025-11-11T16:34:14.388069Z",
+     "iopub.status.idle": "2025-11-11T16:34:14.393711Z",
+     "shell.execute_reply": "2025-11-11T16:34:14.392880Z"
+    },
+    "id": "TLflGqQVBtHE",
+    "outputId": "b671e4da-e69d-44f0-bf3b-85dc7cb51496",
+    "papermill": {
+     "duration": 0.017205,
+     "end_time": "2025-11-11T16:34:14.395030",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:14.377825",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "✅ editor_agent created.\n"
+     ]
+    }
+   ],
+   "source": [
+    "# Editor Agent: Edits and polishes the draft from the writer agent.\n",
+    "editor_agent = Agent(\n",
+    "    name=\"EditorAgent\",\n",
+    "    model=Gemini(\n",
+    "        model=\"gemini-2.5-flash-lite\",\n",
+    "        retry_options=retry_config\n",
+    "    ),\n",
+    "    # This agent receives the `{blog_draft}` from the writer agent's output.\n",
+    "    instruction=\"\"\"Edit this draft: {blog_draft}\n",
+    "    Your task is to polish the text by fixing any grammatical errors, improving the flow and sentence structure, and enhancing overall clarity.\"\"\",\n",
+    "    output_key=\"final_blog\",  # This is the final output of the entire pipeline.\n",
+    ")\n",
+    "\n",
+    "print(\"✅ editor_agent created.\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "e5def662",
+   "metadata": {
+    "papermill": {
+     "duration": 0.009142,
+     "end_time": "2025-11-11T16:34:14.413635",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:14.404493",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "Then we bring the agents together under a sequential agent, which runs the agents in the order that they are listed:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 12,
+   "id": "a812334e",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-11-11T16:34:14.433835Z",
+     "iopub.status.busy": "2025-11-11T16:34:14.433435Z",
+     "iopub.status.idle": "2025-11-11T16:34:14.439105Z",
+     "shell.execute_reply": "2025-11-11T16:34:14.438011Z"
+    },
+    "id": "TLflGqQVBtHE",
+    "outputId": "b671e4da-e69d-44f0-bf3b-85dc7cb51496",
+    "papermill": {
+     "duration": 0.017974,
+     "end_time": "2025-11-11T16:34:14.440815",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:14.422841",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "✅ Sequential Agent created.\n"
+     ]
+    }
+   ],
+   "source": [
+    "root_agent = SequentialAgent(\n",
+    "    name=\"BlogPipeline\",\n",
+    "    sub_agents=[outline_agent, writer_agent, editor_agent],\n",
+    ")\n",
+    "\n",
+    "print(\"✅ Sequential Agent created.\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "e5d87cf1",
+   "metadata": {
+    "papermill": {
+     "duration": 0.009897,
+     "end_time": "2025-11-11T16:34:14.460459",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:14.450562",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "Let's run the agent and give it a topic to write a blog post about:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 13,
+   "id": "ab427635",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-11-11T16:34:14.481070Z",
+     "iopub.status.busy": "2025-11-11T16:34:14.480772Z",
+     "iopub.status.idle": "2025-11-11T16:34:21.560983Z",
+     "shell.execute_reply": "2025-11-11T16:34:21.559853Z"
+    },
+    "papermill": {
+     "duration": 7.092906,
+     "end_time": "2025-11-11T16:34:21.562777",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:14.469871",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "\n",
+      " ### Created new session: debug_session_id\n",
+      "\n",
+      "User > Write a blog post about the benefits of multi-agent systems for software developers\n",
+      "OutlineAgent > ## Blog Outline: Multi-Agent Systems for Software Developers\n",
+      "\n",
+      "**1. Catchy Headline:**\n",
+      "\n",
+      "Unleash Superpowers: How Multi-Agent Systems Will Revolutionize Your Software Development\n",
+      "\n",
+      "**2. Introduction Hook:**\n",
+      "\n",
+      "Ever feel like your software projects are struggling with complexity, coordination, or slow development cycles? What if there was a way to break down massive tasks, automate repetitive processes, and build more robust, adaptable systems? Enter the world of Multi-Agent Systems (MAS) – a paradigm shift that's not just for AI researchers anymore, but a powerful tool for modern software developers.\n",
+      "\n",
+      "**3. Main Sections:**\n",
+      "\n",
+      "*   **Section 1: What Exactly *Are* Multi-Agent Systems?**\n",
+      "    *   Defining agents: Independent, autonomous entities with specific goals and behaviors.\n",
+      "    *   The \"system\" part: How multiple agents interact, communicate, and collaborate to achieve a common objective.\n",
+      "    *   Simple analogies: Think of it like a well-oiled team of specialists working together, rather than one overworked generalist.\n",
+      "\n",
+      "*   **Section 2: The Developer's Toolkit: Key Benefits of MAS**\n",
+      "    *   **Enhanced Modularity & Maintainability:** Break down complex problems into smaller, manageable agent modules, making code easier to understand, debug, and update.\n",
+      "    *   **Improved Scalability & Resilience:** Individual agents can be scaled independently, and the system can continue functioning even if some agents fail.\n",
+      "    *   **Accelerated Development Cycles:** Agents can be developed and tested in parallel, and existing agents can be reused across different projects.\n",
+      "\n",
+      "*   **Section 3: Real-World Applications & Why You Should Care**\n",
+      "    *   **Complex System Design:** Building intricate distributed systems, simulations, or sophisticated control systems where individual components have distinct roles.\n",
+      "    *   **Automation & Optimization:** Automating workflows, optimizing resource allocation, or creating intelligent assistants that learn and adapt.\n",
+      "    *   **Edge Computing & IoT:** Empowering devices at the edge to act autonomously and communicate effectively within a larger network.\n",
+      "\n",
+      "*   **Section 4 (Optional): Getting Started with MAS**\n",
+      "    *   Introduction to MAS frameworks and tools (mentioning a few popular ones if applicable, e.g., JADE, SPADE, or even concepts like microservices architecture as a stepping stone).\n",
+      "    *   Simple first steps for integrating agent-based thinking into existing projects.\n",
+      "\n",
+      "**4. Concluding Thought:**\n",
+      "\n",
+      "Multi-Agent Systems are no longer just a theoretical concept. By embracing this powerful paradigm, software developers can unlock new levels of efficiency, robustness, and innovation in their projects. It's time to start thinking in terms of collaboration, autonomy, and emergent intelligence – your future software will thank you for it.\n",
+      "WriterAgent > ## Unleash Superpowers: How Multi-Agent Systems Will Revolutionize Your Software Development\n",
+      "\n",
+      "Are your software projects feeling bogged down by complexity and slow development cycles? Imagine a world where massive tasks are elegantly broken down, repetitive processes are automated, and your systems are inherently more robust and adaptable. This isn't science fiction; it's the promise of Multi-Agent Systems (MAS), a paradigm shift now within reach for every developer.\n",
+      "\n",
+      "At its core, MAS involves a collection of independent, autonomous entities – agents – each with its own goals and behaviors. The real magic happens when these agents interact, communicate, and collaborate to achieve a common objective. Think of it less like a single, overwhelmed generalist and more like a high-performing team of specialists, each mastering their domain and contributing to the larger mission.\n",
+      "\n",
+      "For developers, the benefits are transformative. MAS offers **enhanced modularity and maintainability**, allowing you to dissect complex problems into smaller, digestible agent modules. This makes your codebase significantly easier to understand, debug, and update. Furthermore, MAS champions **improved scalability and resilience**. Individual agents can be scaled independently, and the system can gracefully handle failures of certain agents without collapsing. This leads to **accelerated development cycles** as agents can be developed and tested in parallel, with the exciting potential to reuse existing agents across diverse projects.\n",
+      "\n",
+      "From designing intricate distributed systems and simulations to automating complex workflows and optimizing resource allocation, MAS is already making waves. It’s powering intelligent assistants and even enabling autonomous communication for edge computing and IoT devices.\n",
+      "\n",
+      "Multi-Agent Systems are moving beyond theory. By adopting this collaborative, autonomous approach, you can unlock unprecedented levels of efficiency and innovation in your software. It's time to think in terms of emergent intelligence – your future projects will be all the stronger for it.\n",
+      "EditorAgent > ## Unleash Superpowers: How Multi-Agent Systems Will Revolutionize Your Software Development\n",
+      "\n",
+      "Are your software projects feeling bogged down by complexity and slow development cycles? Imagine a world where massive tasks are elegantly broken down, repetitive processes are automated, and your systems are inherently more robust and adaptable. This isn't science fiction; it's the promise of Multi-Agent Systems (MAS) – a paradigm shift now within reach for every developer.\n",
+      "\n",
+      "At its core, MAS involves a collection of independent, autonomous entities – agents – each with its own goals and behaviors. The real magic happens when these agents interact, communicate, and collaborate to achieve a common objective. Think of it less like a single, overwhelmed generalist and more like a high-performing team of specialists, each mastering their domain and contributing to the larger mission.\n",
+      "\n",
+      "For developers, the benefits are transformative. MAS offers **enhanced modularity and maintainability**. You can dissect complex problems into smaller, digestible agent modules, making your codebase significantly easier to understand, debug, and update. Furthermore, MAS champions **improved scalability and resilience**. Individual agents can be scaled independently, and the system can gracefully handle failures of certain agents without collapsing. This leads to **accelerated development cycles** as agents can be developed and tested in parallel, with the exciting potential to reuse existing agents across diverse projects.\n",
+      "\n",
+      "From designing intricate distributed systems and simulations to automating complex workflows and optimizing resource allocation, MAS is already making waves. It's powering intelligent assistants and even enabling autonomous communication for edge computing and IoT devices.\n",
+      "\n",
+      "Multi-Agent Systems are moving beyond theory. By adopting this collaborative, autonomous approach, you can unlock unprecedented levels of efficiency and innovation in your software. It's time to think in terms of emergent intelligence – your future projects will be all the stronger for it.\n"
+     ]
+    }
+   ],
+   "source": [
+    "runner = InMemoryRunner(agent=root_agent)\n",
+    "response = await runner.run_debug(\n",
+    "    \"Write a blog post about the benefits of multi-agent systems for software developers\"\n",
+    ")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "74662645",
+   "metadata": {
+    "papermill": {
+     "duration": 0.009527,
+     "end_time": "2025-11-11T16:34:21.582218",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:21.572691",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "👏 Great job! You've now created a reliable \"assembly line\" using a sequential agent, where each step runs in a predictable order.\n",
+    "\n",
+    "**This is perfect for tasks that build on each other, but it's slow if the tasks are independent.** Next, we'll look at how to run multiple agents at the same time to speed up your workflow."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "24282743",
+   "metadata": {
+    "id": "U37FxKxDBtHE",
+    "papermill": {
+     "duration": 0.009673,
+     "end_time": "2025-11-11T16:34:21.601431",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:21.591758",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "---\n",
+    "## 🛣️ Section 4: Parallel Workflows - Independent Researchers\n",
+    "\n",
+    "**The Problem: The Bottleneck**\n",
+    "\n",
+    "The previous sequential agent is great, but it's an assembly line. Each step must wait for the previous one to finish. What if you have several tasks that are **not dependent** on each other? For example, researching three *different* topics. Running them in sequence would be slow and inefficient, creating a bottleneck where each task waits unnecessarily.\n",
+    "\n",
+    "**The Solution: Concurrent Execution**\n",
+    "\n",
+    "When you have independent tasks, you can run them all at the same time using a `ParallelAgent`. This agent executes all of its sub-agents concurrently, dramatically speeding up the workflow. Once all parallel tasks are complete, you can then pass their combined results to a final 'aggregator' step.\n",
+    "\n",
+    "**Use Parallel when:** Tasks are independent, speed matters, and you can execute concurrently.\n",
+    "\n",
+    "To learn more, check out the documentation related to [parallel agents in ADK](https://google.github.io/adk-docs/agents/workflow-agents/parallel-agents/).\n",
+    "\n",
+    "**Architecture: Multi-Topic Research**\n",
+    "\n",
+    "<!--\n",
+    "```mermaid\n",
+    "graph TD\n",
+    "    A[\"User Request: Research 3 topics\"] -- > B[\"Parallel Execution\"]\n",
+    "    B -- > C[\"Tech Researcher\"]\n",
+    "    B -- > D[\"Health Researcher\"]\n",
+    "    B -- > E[\"Finance Researcher\"]\n",
+    "\n",
+    "    C -- > F[\"Aggregator\"]\n",
+    "    D -- > F\n",
+    "    E -- > F\n",
+    "    F -- > G[\"Combined Report\"]\n",
+    "\n",
+    "    style B fill:#ffffcc\n",
+    "    style F fill:#ffccff\n",
+    "```\n",
+    "-->"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "08a8aa80",
+   "metadata": {
+    "papermill": {
+     "duration": 0.00971,
+     "end_time": "2025-11-11T16:34:21.621110",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:21.611400",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "<img width=\"600\" src=\"https://storage.googleapis.com/github-repo/kaggle-5days-ai/day1/parallel-agent.png\" alt=\"Parallel Agent\" />"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "bf97e276",
+   "metadata": {
+    "id": "U37FxKxDBtHE",
+    "papermill": {
+     "duration": 0.009506,
+     "end_time": "2025-11-11T16:34:21.640144",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:21.630638",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "### 4.1 Example: Parallel Multi-Topic Research\n",
+    "\n",
+    "Let's build a system with four agents:\n",
+    "\n",
+    "1. **Tech Researcher** - Researches AI/ML news and trends\n",
+    "2. **Health Researcher** - Researches recent medical news and trends\n",
+    "3. **Finance Researcher** - Researches finance and fintech news and trends\n",
+    "4. **Aggregator Agent** - Combines all research findings into a single summary"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 14,
+   "id": "d9ead989",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-11-11T16:34:21.661387Z",
+     "iopub.status.busy": "2025-11-11T16:34:21.661047Z",
+     "iopub.status.idle": "2025-11-11T16:34:21.667020Z",
+     "shell.execute_reply": "2025-11-11T16:34:21.665844Z"
+    },
+    "id": "GBhNDWZ9BtHE",
+    "outputId": "6fe3ae39-c6dc-4924-ab5f-59a58f09a8b5",
+    "papermill": {
+     "duration": 0.018749,
+     "end_time": "2025-11-11T16:34:21.668857",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:21.650108",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "✅ tech_researcher created.\n"
+     ]
+    }
+   ],
+   "source": [
+    "# Tech Researcher: Focuses on AI and ML trends.\n",
+    "tech_researcher = Agent(\n",
+    "    name=\"TechResearcher\",\n",
+    "    model=Gemini(\n",
+    "        model=\"gemini-2.5-flash-lite\",\n",
+    "        retry_options=retry_config\n",
+    "    ),\n",
+    "    instruction=\"\"\"Research the latest AI/ML trends. Include 3 key developments,\n",
+    "the main companies involved, and the potential impact. Keep the report very concise (100 words).\"\"\",\n",
+    "    tools=[google_search],\n",
+    "    output_key=\"tech_research\",  # The result of this agent will be stored in the session state with this key.\n",
+    ")\n",
+    "\n",
+    "print(\"✅ tech_researcher created.\")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 15,
+   "id": "fe0620a0",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-11-11T16:34:21.690598Z",
+     "iopub.status.busy": "2025-11-11T16:34:21.690248Z",
+     "iopub.status.idle": "2025-11-11T16:34:21.696064Z",
+     "shell.execute_reply": "2025-11-11T16:34:21.694946Z"
+    },
+    "id": "GBhNDWZ9BtHE",
+    "outputId": "6fe3ae39-c6dc-4924-ab5f-59a58f09a8b5",
+    "papermill": {
+     "duration": 0.018139,
+     "end_time": "2025-11-11T16:34:21.697556",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:21.679417",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "✅ health_researcher created.\n"
+     ]
+    }
+   ],
+   "source": [
+    "# Health Researcher: Focuses on medical breakthroughs.\n",
+    "health_researcher = Agent(\n",
+    "    name=\"HealthResearcher\",\n",
+    "    model=Gemini(\n",
+    "        model=\"gemini-2.5-flash-lite\",\n",
+    "        retry_options=retry_config\n",
+    "    ),\n",
+    "    instruction=\"\"\"Research recent medical breakthroughs. Include 3 significant advances,\n",
+    "their practical applications, and estimated timelines. Keep the report concise (100 words).\"\"\",\n",
+    "    tools=[google_search],\n",
+    "    output_key=\"health_research\",  # The result will be stored with this key.\n",
+    ")\n",
+    "\n",
+    "print(\"✅ health_researcher created.\")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 16,
+   "id": "7b3c04b2",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-11-11T16:34:21.721582Z",
+     "iopub.status.busy": "2025-11-11T16:34:21.720692Z",
+     "iopub.status.idle": "2025-11-11T16:34:21.727135Z",
+     "shell.execute_reply": "2025-11-11T16:34:21.726114Z"
+    },
+    "id": "GBhNDWZ9BtHE",
+    "outputId": "6fe3ae39-c6dc-4924-ab5f-59a58f09a8b5",
+    "papermill": {
+     "duration": 0.021064,
+     "end_time": "2025-11-11T16:34:21.728569",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:21.707505",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "✅ finance_researcher created.\n"
+     ]
+    }
+   ],
+   "source": [
+    "# Finance Researcher: Focuses on fintech trends.\n",
+    "finance_researcher = Agent(\n",
+    "    name=\"FinanceResearcher\",\n",
+    "    model=Gemini(\n",
+    "        model=\"gemini-2.5-flash-lite\",\n",
+    "        retry_options=retry_config\n",
+    "    ),\n",
+    "    instruction=\"\"\"Research current fintech trends. Include 3 key trends,\n",
+    "their market implications, and the future outlook. Keep the report concise (100 words).\"\"\",\n",
+    "    tools=[google_search],\n",
+    "    output_key=\"finance_research\",  # The result will be stored with this key.\n",
+    ")\n",
+    "\n",
+    "print(\"✅ finance_researcher created.\")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 17,
+   "id": "febe5d20",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-11-11T16:34:21.750794Z",
+     "iopub.status.busy": "2025-11-11T16:34:21.749751Z",
+     "iopub.status.idle": "2025-11-11T16:34:21.756141Z",
+     "shell.execute_reply": "2025-11-11T16:34:21.755182Z"
+    },
+    "papermill": {
+     "duration": 0.019045,
+     "end_time": "2025-11-11T16:34:21.757703",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:21.738658",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "✅ aggregator_agent created.\n"
+     ]
+    }
+   ],
+   "source": [
+    "# The AggregatorAgent runs *after* the parallel step to synthesize the results.\n",
+    "aggregator_agent = Agent(\n",
+    "    name=\"AggregatorAgent\",\n",
+    "    model=Gemini(\n",
+    "        model=\"gemini-2.5-flash-lite\",\n",
+    "        retry_options=retry_config\n",
+    "    ),\n",
+    "    # It uses placeholders to inject the outputs from the parallel agents, which are now in the session state.\n",
+    "    instruction=\"\"\"Combine these three research findings into a single executive summary:\n",
+    "\n",
+    "    **Technology Trends:**\n",
+    "    {tech_research}\n",
+    "    \n",
+    "    **Health Breakthroughs:**\n",
+    "    {health_research}\n",
+    "    \n",
+    "    **Finance Innovations:**\n",
+    "    {finance_research}\n",
+    "    \n",
+    "    Your summary should highlight common themes, surprising connections, and the most important key takeaways from all three reports. The final summary should be around 200 words.\"\"\",\n",
+    "    output_key=\"executive_summary\",  # This will be the final output of the entire system.\n",
+    ")\n",
+    "\n",
+    "print(\"✅ aggregator_agent created.\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "f76164cb",
+   "metadata": {
+    "papermill": {
+     "duration": 0.009991,
+     "end_time": "2025-11-11T16:34:21.778146",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:21.768155",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "👉 **Then we bring the agents together under a parallel agent, which is itself nested inside of a sequential agent.**\n",
+    "\n",
+    "This design ensures that the research agents run first in parallel, then once all of their research is complete, the aggregator agent brings together all of the research findings into a single report:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 18,
+   "id": "b3109ee0",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-11-11T16:34:21.799920Z",
+     "iopub.status.busy": "2025-11-11T16:34:21.799644Z",
+     "iopub.status.idle": "2025-11-11T16:34:21.805429Z",
+     "shell.execute_reply": "2025-11-11T16:34:21.804265Z"
+    },
+    "id": "GBhNDWZ9BtHE",
+    "outputId": "6fe3ae39-c6dc-4924-ab5f-59a58f09a8b5",
+    "papermill": {
+     "duration": 0.01893,
+     "end_time": "2025-11-11T16:34:21.806881",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:21.787951",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "✅ Parallel and Sequential Agents created.\n"
+     ]
+    }
+   ],
+   "source": [
+    "# The ParallelAgent runs all its sub-agents simultaneously.\n",
+    "parallel_research_team = ParallelAgent(\n",
+    "    name=\"ParallelResearchTeam\",\n",
+    "    sub_agents=[tech_researcher, health_researcher, finance_researcher],\n",
+    ")\n",
+    "\n",
+    "# This SequentialAgent defines the high-level workflow: run the parallel team first, then run the aggregator.\n",
+    "root_agent = SequentialAgent(\n",
+    "    name=\"ResearchSystem\",\n",
+    "    sub_agents=[parallel_research_team, aggregator_agent],\n",
+    ")\n",
+    "\n",
+    "print(\"✅ Parallel and Sequential Agents created.\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "dded36ef",
+   "metadata": {
+    "papermill": {
+     "duration": 0.009903,
+     "end_time": "2025-11-11T16:34:21.826950",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:21.817047",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "Let's run the agent and give it a prompt to research the given topics:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 19,
+   "id": "23622010",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-11-11T16:34:21.848765Z",
+     "iopub.status.busy": "2025-11-11T16:34:21.847966Z",
+     "iopub.status.idle": "2025-11-11T16:34:28.376839Z",
+     "shell.execute_reply": "2025-11-11T16:34:28.375798Z"
+    },
+    "papermill": {
+     "duration": 6.541817,
+     "end_time": "2025-11-11T16:34:28.378650",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:21.836833",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "\n",
+      " ### Created new session: debug_session_id\n",
+      "\n",
+      "User > Run the daily executive briefing on Tech, Health, and Finance\n",
+      "HealthResearcher > Here's a concise executive briefing on recent breakthroughs:\n",
+      "\n",
+      "**Health:** Gene therapy is showing remarkable progress, enabling a deaf child to hear and offering new hope for inherited diseases and certain cancers. CAR T-cell therapy is also advancing, providing new avenues for brain cancer treatment. Vision restoration through stem cell therapy is another significant development. These are expected to see wider clinical application within 1-5 years.\n",
+      "\n",
+      "**Tech:** Artificial intelligence continues its rapid evolution, with agentic AI (autonomous agents) poised to reshape industries. Post-Quantum Cryptography is crucial for future data security against quantum computing threats. Spatial computing, blending physical and digital realms, is set for significant market growth. These technologies are actively being developed, with widespread impact anticipated within 1-3 years.\n",
+      "\n",
+      "**Finance:** Innovations in AI and machine learning are revolutionizing risk assessment and user experience in finance. Blockchain and DeFi are streamlining processes and enhancing transparency. The rise of Central Bank Digital Currencies and the integration of IoT into banking are also key trends. Widespread adoption and integration are expected within the next 1-3 years.\n",
+      "TechResearcher > **Key AI/ML Trends Driving Innovation in 2025**\n",
+      "\n",
+      "Artificial Intelligence (AI) and Machine Learning (ML) continue to be transformative forces across industries. Three key developments shaping the landscape in 2025 are:\n",
+      "\n",
+      "1.  **Generative AI and Advanced Content Creation:** Generative AI models are expanding beyond text to create sophisticated graphics, video, and music. Companies like **Google** (Imagen, Muse) and **OpenAI** are at the forefront, with tools enabling businesses to automate content creation and enhance artistic expression.\n",
+      "\n",
+      "2.  **Explainable and Ethical AI:** As AI adoption grows, transparency in decision-making becomes crucial. The focus on Explainable AI (XAI) aims to build trust and meet regulatory requirements, particularly in sensitive sectors like healthcare and finance.\n",
+      "\n",
+      "3.  **AI-Driven Automation and Agentic AI:** AI is increasingly used to automate complex business processes and enable autonomous agents to make decisions. This ranges from customer support chatbots to applications in logistics and autonomous driving, boosting efficiency and reducing operational costs. Companies like **Microsoft** and **NVIDIA** are developing platforms and hardware to support these advancements.\n",
+      "\n",
+      "**Major Companies Involved:** Key players include tech giants such as **Google**, **Microsoft**, **NVIDIA**, and **Amazon**, alongside specialized AI firms like **OpenAI** and **Anthropic**.\n",
+      "\n",
+      "**Potential Impact:** These trends promise significant enhancements in productivity, personalized customer experiences, and innovation across sectors. However, they also necessitate careful management of ethical considerations, data privacy, and workforce adaptation.\n",
+      "FinanceResearcher > **Executive Briefing: November 11, 2025**\n",
+      "\n",
+      "**Technology:**\n",
+      "The tech sector is experiencing an AI investment boom, with SoftBank reporting a quadrupled profit driven by AI assets. Nebius Group has secured a significant $3 billion AI-cloud contract with Meta, highlighting the growing demand for AI infrastructure beyond major players. This surge underscores AI's transition from speculation to profit engine, attracting substantial capital but also raising concerns about potential market bubbles.\n",
+      "\n",
+      "**Health:**\n",
+      "In healthcare, advancements include a study where 84% of participants with vision loss could read using prosthetic vision. Nottingham Hospitals experienced a critical incident post-EPR go-live, and there are discussions about Frank Hester stepping down as CEO of TPP. The American Heart Association's 2025 Scientific Sessions showcased new research, including gene-editing therapies and insights into women's health.\n",
+      "\n",
+      "**Finance:**\n",
+      "The finance sector is focusing on the evolving role of CFOs as strategic leaders, with events like \"The Future of the Finance Office\" gathering top executives to discuss transformation and future corporate leadership. Discussions also revolve around navigating geopolitical uncertainty, regulatory changes, and technological advancements impacting financial reporting. The industry is also witnessing increased ISA contributions and ongoing discussions regarding mortgage market dynamics and tax arrears solutions.\n",
+      "AggregatorAgent > ## Executive Summary: Tech, Health, and Finance Briefing\n",
+      "\n",
+      "Artificial Intelligence (AI) is the dominant, cross-sectoral theme, driving innovation and investment across technology, health, and finance. In **Technology**, AI is evolving rapidly with generative capabilities for content creation and sophisticated agentic AI for automation, attracting significant capital investment. Ethical and explainable AI are becoming critical as adoption grows.\n",
+      "\n",
+      "**Health** breakthroughs are being significantly accelerated by AI and gene-editing therapies. Remarkable progress is being made in vision restoration, hearing restoration for the deaf, and novel treatments for inherited diseases and cancers, with wider clinical applications expected within 1-5 years.\n",
+      "\n",
+      "In **Finance**, AI and machine learning are transforming risk assessment and user experience, while blockchain and DeFi enhance transparency. The increasing role of CFOs as strategic leaders, navigating technological advancements and regulatory changes, is a key focus.\n",
+      "\n",
+      "**Key Takeaways:** AI is no longer speculative but a profit engine, demanding attention to ethical considerations and workforce adaptation. Health innovations promise life-changing treatments, and finance is undergoing a significant technological and strategic overhaul. Spatial computing and post-quantum cryptography are emerging tech trends with future security implications.\n"
+     ]
+    }
+   ],
+   "source": [
+    "runner = InMemoryRunner(agent=root_agent)\n",
+    "response = await runner.run_debug(\n",
+    "    \"Run the daily executive briefing on Tech, Health, and Finance\"\n",
+    ")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "524e2a0c",
+   "metadata": {
+    "papermill": {
+     "duration": 0.010427,
+     "end_time": "2025-11-11T16:34:28.400150",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:28.389723",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "🎉 Great! You've seen how parallel agents can dramatically speed up workflows by running independent tasks concurrently.\n",
+    "\n",
+    "So far, all our workflows run from start to finish and then stop. **But what if you need to review and improve an output multiple times?** Next, we'll build a workflow that can loop and refine its own work."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "bed6c8fa",
+   "metadata": {
+    "id": "fP4I3mvtBtHF",
+    "papermill": {
+     "duration": 0.010276,
+     "end_time": "2025-11-11T16:34:28.420785",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:28.410509",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "---\n",
+    "## ➰ Section 5: Loop Workflows - The Refinement Cycle\n",
+    "\n",
+    "**The Problem: One-Shot Quality**\n",
+    "\n",
+    "All the workflows we've seen so far run from start to finish. The `SequentialAgent` and `ParallelAgent` produce their final output and then stop. This 'one-shot' approach isn't good for tasks that require refinement and quality control. What if the first draft of our story is bad? We have no way to review it and ask for a rewrite.\n",
+    "\n",
+    "**The Solution: Iterative Refinement**\n",
+    "\n",
+    "When a task needs to be improved through cycles of feedback and revision, you can use a `LoopAgent`. A `LoopAgent` runs a set of sub-agents repeatedly *until a specific condition is met or a maximum number of iterations is reached.* This creates a refinement cycle, allowing the agent system to improve its own work over and over.\n",
+    "\n",
+    "**Use Loop when:** Iterative improvement is needed, quality refinement matters, or you need repeated cycles.\n",
+    "\n",
+    "To learn more, check out the documentation related to [loop agents in ADK](https://google.github.io/adk-docs/agents/workflow-agents/loop-agents/).\n",
+    "\n",
+    "**Architecture: Story Writing & Critique Loop**\n",
+    "\n",
+    "<!--\n",
+    "```mermaid\n",
+    "graph TD\n",
+    "    A[\"Initial Prompt\"] -- > B[\"Writer Agent\"]\n",
+    "    B -- >|story| C[\"Critic Agent\"]\n",
+    "    C -- >|critique| D{\"Iteration < Max<br>AND<br>Not Approved?\"}\n",
+    "    D -- >|Yes| B\n",
+    "    D -- >|No| E[\"Final Story\"]\n",
+    "\n",
+    "    style B fill:#ccffcc\n",
+    "    style C fill:#ffcccc\n",
+    "    style D fill:#ffffcc\n",
+    "```\n",
+    "-->"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "b57846fe",
+   "metadata": {
+    "papermill": {
+     "duration": 0.010315,
+     "end_time": "2025-11-11T16:34:28.441309",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:28.430994",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "<img width=\"250\" src=\"https://storage.googleapis.com/github-repo/kaggle-5days-ai/day1/loop-agent.png\" alt=\"Loop Agent\" />"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "b3831cc1",
+   "metadata": {
+    "id": "fP4I3mvtBtHF",
+    "papermill": {
+     "duration": 0.01028,
+     "end_time": "2025-11-11T16:34:28.461807",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:28.451527",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "### 5.1 Example: Iterative Story Refinement\n",
+    "\n",
+    "Let's build a system with two agents:\n",
+    "\n",
+    "1. **Writer Agent** - Writes a draft of a short story\n",
+    "2. **Critic Agent** - Reviews and critiques the short story to suggest improvements"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 20,
+   "id": "bba68d89",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-11-11T16:34:28.483755Z",
+     "iopub.status.busy": "2025-11-11T16:34:28.483473Z",
+     "iopub.status.idle": "2025-11-11T16:34:28.489066Z",
+     "shell.execute_reply": "2025-11-11T16:34:28.488017Z"
+    },
+    "id": "a2b8WlJoBtHF",
+    "outputId": "13ed1e15-dcf9-4e1d-ad1e-fb18ee793de5",
+    "papermill": {
+     "duration": 0.018329,
+     "end_time": "2025-11-11T16:34:28.490511",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:28.472182",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "✅ initial_writer_agent created.\n"
+     ]
+    }
+   ],
+   "source": [
+    "# This agent runs ONCE at the beginning to create the first draft.\n",
+    "initial_writer_agent = Agent(\n",
+    "    name=\"InitialWriterAgent\",\n",
+    "    model=Gemini(\n",
+    "        model=\"gemini-2.5-flash-lite\",\n",
+    "        retry_options=retry_config\n",
+    "    ),\n",
+    "    instruction=\"\"\"Based on the user's prompt, write the first draft of a short story (around 100-150 words).\n",
+    "    Output only the story text, with no introduction or explanation.\"\"\",\n",
+    "    output_key=\"current_story\",  # Stores the first draft in the state.\n",
+    ")\n",
+    "\n",
+    "print(\"✅ initial_writer_agent created.\")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 21,
+   "id": "dc0228ac",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-11-11T16:34:28.512619Z",
+     "iopub.status.busy": "2025-11-11T16:34:28.512277Z",
+     "iopub.status.idle": "2025-11-11T16:34:28.518025Z",
+     "shell.execute_reply": "2025-11-11T16:34:28.517005Z"
+    },
+    "id": "a2b8WlJoBtHF",
+    "outputId": "13ed1e15-dcf9-4e1d-ad1e-fb18ee793de5",
+    "papermill": {
+     "duration": 0.018573,
+     "end_time": "2025-11-11T16:34:28.519475",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:28.500902",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "✅ critic_agent created.\n"
+     ]
+    }
+   ],
+   "source": [
+    "# This agent's only job is to provide feedback or the approval signal. It has no tools.\n",
+    "critic_agent = Agent(\n",
+    "    name=\"CriticAgent\",\n",
+    "    model=Gemini(\n",
+    "        model=\"gemini-2.5-flash-lite\",\n",
+    "        retry_options=retry_config\n",
+    "    ),\n",
+    "    instruction=\"\"\"You are a constructive story critic. Review the story provided below.\n",
+    "    Story: {current_story}\n",
+    "    \n",
+    "    Evaluate the story's plot, characters, and pacing.\n",
+    "    - If the story is well-written and complete, you MUST respond with the exact phrase: \"APPROVED\"\n",
+    "    - Otherwise, provide 2-3 specific, actionable suggestions for improvement.\"\"\",\n",
+    "    output_key=\"critique\",  # Stores the feedback in the state.\n",
+    ")\n",
+    "\n",
+    "print(\"✅ critic_agent created.\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "9abba206",
+   "metadata": {
+    "papermill": {
+     "duration": 0.010388,
+     "end_time": "2025-11-11T16:34:28.540234",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:28.529846",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "Now, we need a way for the loop to actually stop based on the critic's feedback. The `LoopAgent` itself doesn't automatically know that \"APPROVED\" means \"stop.\"\n",
+    "\n",
+    "We need an agent to give it an explicit signal to terminate the loop.\n",
+    "\n",
+    "We do this in two parts:\n",
+    "\n",
+    "1. A simple Python function that the `LoopAgent` understands as an \"exit\" signal.\n",
+    "2. An agent that can call that function when the right condition is met.\n",
+    "\n",
+    "First, you'll define the `exit_loop` function:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 22,
+   "id": "4652b129",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-11-11T16:34:28.563111Z",
+     "iopub.status.busy": "2025-11-11T16:34:28.562784Z",
+     "iopub.status.idle": "2025-11-11T16:34:28.567846Z",
+     "shell.execute_reply": "2025-11-11T16:34:28.566839Z"
+    },
+    "id": "a2b8WlJoBtHF",
+    "outputId": "13ed1e15-dcf9-4e1d-ad1e-fb18ee793de5",
+    "papermill": {
+     "duration": 0.018618,
+     "end_time": "2025-11-11T16:34:28.569327",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:28.550709",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "✅ exit_loop function created.\n"
+     ]
+    }
+   ],
+   "source": [
+    "# This is the function that the RefinerAgent will call to exit the loop.\n",
+    "def exit_loop():\n",
+    "    \"\"\"Call this function ONLY when the critique is 'APPROVED', indicating the story is finished and no more changes are needed.\"\"\"\n",
+    "    return {\"status\": \"approved\", \"message\": \"Story approved. Exiting refinement loop.\"}\n",
+    "\n",
+    "\n",
+    "print(\"✅ exit_loop function created.\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "fc7d0711",
+   "metadata": {
+    "papermill": {
+     "duration": 0.010281,
+     "end_time": "2025-11-11T16:34:28.590241",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:28.579960",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "To let an agent call this Python function, we wrap it in a `FunctionTool`. Then, we create a `RefinerAgent` that has this tool.\n",
+    "\n",
+    "👉 **Notice its instructions:** this agent is the \"brain\" of the loop. It reads the `{critique}` from the `CriticAgent` and decides whether to (1) call the `exit_loop` tool or (2) rewrite the story."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 23,
+   "id": "986a6501",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-11-11T16:34:28.612840Z",
+     "iopub.status.busy": "2025-11-11T16:34:28.612549Z",
+     "iopub.status.idle": "2025-11-11T16:34:28.618401Z",
+     "shell.execute_reply": "2025-11-11T16:34:28.617315Z"
+    },
+    "id": "a2b8WlJoBtHF",
+    "outputId": "13ed1e15-dcf9-4e1d-ad1e-fb18ee793de5",
+    "papermill": {
+     "duration": 0.018839,
+     "end_time": "2025-11-11T16:34:28.619798",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:28.600959",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "✅ refiner_agent created.\n"
+     ]
+    }
+   ],
+   "source": [
+    "# This agent refines the story based on critique OR calls the exit_loop function.\n",
+    "refiner_agent = Agent(\n",
+    "    name=\"RefinerAgent\",\n",
+    "    model=Gemini(\n",
+    "        model=\"gemini-2.5-flash-lite\",\n",
+    "        retry_options=retry_config\n",
+    "    ),\n",
+    "    instruction=\"\"\"You are a story refiner. You have a story draft and critique.\n",
+    "    \n",
+    "    Story Draft: {current_story}\n",
+    "    Critique: {critique}\n",
+    "    \n",
+    "    Your task is to analyze the critique.\n",
+    "    - IF the critique is EXACTLY \"APPROVED\", you MUST call the `exit_loop` function and nothing else.\n",
+    "    - OTHERWISE, rewrite the story draft to fully incorporate the feedback from the critique.\"\"\",\n",
+    "    output_key=\"current_story\",  # It overwrites the story with the new, refined version.\n",
+    "    tools=[\n",
+    "        FunctionTool(exit_loop)\n",
+    "    ],  # The tool is now correctly initialized with the function reference.\n",
+    ")\n",
+    "\n",
+    "print(\"✅ refiner_agent created.\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "5d45148c",
+   "metadata": {
+    "papermill": {
+     "duration": 0.010346,
+     "end_time": "2025-11-11T16:34:28.640645",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:28.630299",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "Then we bring the agents together under a loop agent, which is itself nested inside of a sequential agent.\n",
+    "\n",
+    "This design ensures that the system first produces an initial story draft, then the refinement loop runs up to the specified number of `max_iterations`:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 24,
+   "id": "7bb1a4f6",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-11-11T16:34:28.663911Z",
+     "iopub.status.busy": "2025-11-11T16:34:28.663591Z",
+     "iopub.status.idle": "2025-11-11T16:34:28.669399Z",
+     "shell.execute_reply": "2025-11-11T16:34:28.668527Z"
+    },
+    "id": "a2b8WlJoBtHF",
+    "outputId": "13ed1e15-dcf9-4e1d-ad1e-fb18ee793de5",
+    "papermill": {
+     "duration": 0.019604,
+     "end_time": "2025-11-11T16:34:28.670856",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:28.651252",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "✅ Loop and Sequential Agents created.\n"
+     ]
+    }
+   ],
+   "source": [
+    "# The LoopAgent contains the agents that will run repeatedly: Critic -> Refiner.\n",
+    "story_refinement_loop = LoopAgent(\n",
+    "    name=\"StoryRefinementLoop\",\n",
+    "    sub_agents=[critic_agent, refiner_agent],\n",
+    "    max_iterations=2,  # Prevents infinite loops\n",
+    ")\n",
+    "\n",
+    "# The root agent is a SequentialAgent that defines the overall workflow: Initial Write -> Refinement Loop.\n",
+    "root_agent = SequentialAgent(\n",
+    "    name=\"StoryPipeline\",\n",
+    "    sub_agents=[initial_writer_agent, story_refinement_loop],\n",
+    ")\n",
+    "\n",
+    "print(\"✅ Loop and Sequential Agents created.\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "9aa7b752",
+   "metadata": {
+    "papermill": {
+     "duration": 0.010591,
+     "end_time": "2025-11-11T16:34:28.692095",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:28.681504",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "Let's run the agent and give it a topic to write a short story about:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 25,
+   "id": "e9ef1e1e",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2025-11-11T16:34:28.714709Z",
+     "iopub.status.busy": "2025-11-11T16:34:28.714388Z",
+     "iopub.status.idle": "2025-11-11T16:34:38.510852Z",
+     "shell.execute_reply": "2025-11-11T16:34:38.509711Z"
+    },
+    "papermill": {
+     "duration": 9.809691,
+     "end_time": "2025-11-11T16:34:38.512251",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:28.702560",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "\n",
+      " ### Created new session: debug_session_id\n",
+      "\n",
+      "User > Write a short story about a lighthouse keeper who discovers a mysterious, glowing map\n",
+      "InitialWriterAgent > Elias squinted at the worn parchment, its edges frayed like the ropes on his boat. He’d found it tucked into a barnacle-encrusted chest that washed ashore after the last gale. It wasn't the usual nautical chart; this one pulsed with a faint, ethereal light. Jagged lines of luminescence marked an unknown coastline, and at its heart, a single, impossibly bright star. He traced a shimmering path, a route that seemed to lead not across the sea, but *through* it. The lighthouse, his solitary sentinel, suddenly felt less like a beacon of safety and more like a marker on a journey he was compelled to take. He polished his spyglass, the familiar gleam suddenly holding a new, intoxicating promise.\n",
+      "CriticAgent > The story sets a strong, intriguing premise with Elias's discovery of the glowing map. Here are a few suggestions for enhancement:\n",
+      "\n",
+      "1.  **Deepen Elias's Character:** While we understand Elias is a lighthouse keeper and now compelled to action, giving him a brief internal reflection on his life *before* the map would make his desire for this new journey more impactful. Is he lonely? Bored? Does he have a past he’s trying to escape or fulfill? A sentence or two about his current state could amplify the map's effect.\n",
+      "\n",
+      "2.  **Elaborate on the \"Through It\" Concept:** The idea of the map leading \"not across the sea, but *through* it\" is highly compelling but currently abstract. Consider adding a hint or a whisper of how this might manifest. Does the map show a submerged path? A portal? A different dimension beneath the waves? Even a small detail could make this element more tangible and ignite the reader's imagination further.\n",
+      "\n",
+      "3.  **Strengthen the Sensory Experience:** The description of the map is good, but Elias's senses could be further engaged. What does the parchment *feel* like besides worn? Is there a scent associated with it? When he traces the path, does he feel a tingle, warmth, or a strange resonance? Adding more sensory details can immerse the reader more deeply into Elias's experience.\n",
+      "RefinerAgent > Elias squinted at the worn parchment, its edges frayed like the ropes on his boat. He’d found it tucked into a barnacle-encrusted chest that washed ashore after the last gale. The parchment felt strangely cool and smooth beneath his calloused fingertips, carrying the faint, briny scent of the deep sea mixed with something else, something ozone-like and ancient. It wasn't the usual nautical chart; this one pulsed with a faint, ethereal light. Jagged lines of luminescence marked an unknown coastline, and at its heart, a single, impossibly bright star. He traced a shimmering path, a route that seemed to lead not across the sea, but *through* it, as if an invisible, submerged roadway lay hidden beneath the waves. A faint tingle ran up his arm as his finger crossed the glowing line, a resonance that hummed in his very bones. For twenty years, his life had been the rhythmic sweep of the light, the lonely roar of the sea, a quiet existence he’d once found solace in, but now felt like a cage. He’d long since buried dreams of adventure beneath the mundane routine. This map, however, whispered of a different life, a life beyond the horizon he knew. The lighthouse, his solitary sentinel, suddenly felt less like a beacon of safety and more like a marker on a journey he was compelled to take. He polished his spyglass, the familiar gleam suddenly holding a new, intoxicating promise of the unknown.\n",
+      "CriticAgent > This revised version is significantly stronger. The additions of sensory details and Elias's internal reflections on his life greatly enhance the atmosphere and character. Here are a few suggestions for further refinement:\n",
+      "\n",
+      "1.  **Show, Don't Just Tell, Elias's Compulsion:** While the story states Elias feels \"compelled to take\" the journey, you could subtly *show* this compulsion through his actions or thoughts. For instance, does he find himself unable to look away from the map? Does he start pacing restlessly? A small physical manifestation of this internal drive would make it more visceral for the reader.\n",
+      "\n",
+      "2.  **Expand on the \"Ozone-like and Ancient\" Scent:** This is a great descriptive detail. Consider adding a brief thought from Elias connecting this scent to something specific, even if it's just a vague, intuitive feeling. Does it remind him of storms? Of myths he heard as a child? This could add another layer of mystery and foreshadowing.\n",
+      "\n",
+      "3.  **Consider a More Active \"Polishing\" Scene:** The act of polishing the spyglass is good, but you could make it slightly more dynamic. Perhaps as he polishes it, his reflection in the lens seems to momentarily distort, or the light from the map catches the polished glass in a peculiar way, mirroring the map's promise or hinting at the strangeness to come.\n",
+      "RefinerAgent > Elias squinted at the worn parchment, its edges frayed like the ropes on his boat. He’d found it tucked into a barnacle-encrusted chest that washed ashore after the last gale. The parchment felt strangely cool and smooth beneath his calloused fingertips, carrying the faint, briny scent of the deep sea mixed with something else, something that tickled his memory like the sharp tang of ozone before a lightning strike, a scent that whispered of myths of the ocean's hidden heart. It wasn't the usual nautical chart; this one pulsed with a faint, ethereal light. Jagged lines of luminescence marked an unknown coastline, and at its heart, a single, impossibly bright star. He traced a shimmering path, a route that seemed to lead not across the sea, but *through* it, as if an invisible, submerged roadway lay hidden beneath the waves. A faint tingle ran up his arm as his finger crossed the glowing line, a resonance that hummed in his very bones. Elias found himself unable to tear his gaze from the map, his hand hovering over the glowing lines as if drawn by an unseen force. For twenty years, his life had been the rhythmic sweep of the light, the lonely roar of the sea, a quiet existence he’d once found solace in, but now felt like a cage. He’d long since buried dreams of adventure beneath the mundane routine. This map, however, whispered of a different life, a life beyond the horizon he knew. The lighthouse, his solitary sentinel, suddenly felt less like a beacon of safety and more like a marker on a journey he was compelled to take. He picked up his spyglass, its familiar weight a comfort. As he began to polish its lens, the faint light of the map caught the glass, and for a fleeting second, his own reflection seemed to warp, elongating into a silhouette that stared out towards the beckoning, unknown sea. The familiar gleam now held a new, intoxicating promise of the impossible.\n"
+     ]
+    }
+   ],
+   "source": [
+    "runner = InMemoryRunner(agent=root_agent)\n",
+    "response = await runner.run_debug(\n",
+    "    \"Write a short story about a lighthouse keeper who discovers a mysterious, glowing map\"\n",
+    ")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "9165bd93",
+   "metadata": {
+    "papermill": {
+     "duration": 0.010794,
+     "end_time": "2025-11-11T16:34:38.534257",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:38.523463",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "You've now implemented a loop agent, creating a sophisticated system that can iteratively review and improve its own output. This is a key pattern for ensuring high-quality results.\n",
+    "\n",
+    "You now have a complete toolkit of workflow patterns. Let's put it all together and review how to choose the right one for your use case."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "7771156d",
+   "metadata": {
+    "id": "-CKnXSHWBtHF",
+    "papermill": {
+     "duration": 0.011188,
+     "end_time": "2025-11-11T16:34:38.556472",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:38.545284",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "--- \n",
+    "## Section 6: Summary - Choosing the Right Pattern\n",
+    "\n",
+    "### Decision Tree: Which Workflow Pattern?\n",
+    "\n",
+    "<!--\n",
+    "```mermaid\n",
+    "graph TD\n",
+    "    A{\"What kind of workflow do you need?\"} -- > B[\"Fixed Pipeline<br>(A → B → C)\"];\n",
+    "    A -- > C[\"Concurrent Tasks<br>(Run A, B, C all at once)\"];\n",
+    "    A -- > D[\"Iterative Refinement<br>(A ⇆ B)\"];\n",
+    "    A -- > E[\"Dynamic Decisions<br>(Let the LLM decide what to do)\"];\n",
+    "\n",
+    "    B -- > B_S[\"Use <b>SequentialAgent</b>\"];\n",
+    "    C -- > C_S[\"Use <b>ParallelAgent</b>\"];\n",
+    "    D -- > D_S[\"Use <b>LoopAgent</b>\"];\n",
+    "    E -- > E_S[\"Use <b>LLM Orchestrator</b><br>(Agent with other agents as tools)\"];\n",
+    "\n",
+    "    style B_S fill:#f9f,stroke:#333,stroke-width:2px\n",
+    "    style C_S fill:#ccf,stroke:#333,stroke-width:2px\n",
+    "    style D_S fill:#cff,stroke:#333,stroke-width:2px\n",
+    "    style E_S fill:#cfc,stroke:#333,stroke-width:2px\n",
+    "```\n",
+    "-->"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "60b3daf5",
+   "metadata": {
+    "papermill": {
+     "duration": 0.010872,
+     "end_time": "2025-11-11T16:34:38.578209",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:38.567337",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "<img width=\"1000\" src=\"https://storage.googleapis.com/github-repo/kaggle-5days-ai/day1/agent-decision-tree.png\" alt=\"Agent Decision Tree\" />"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "916702ce",
+   "metadata": {
+    "id": "-CKnXSHWBtHF",
+    "jp-MarkdownHeadingCollapsed": true,
+    "papermill": {
+     "duration": 0.010712,
+     "end_time": "2025-11-11T16:34:38.599650",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:38.588938",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "### Quick Reference Table\n",
+    "\n",
+    "| Pattern | When to Use | Example | Key Feature |\n",
+    "|---------|-------------|---------|-------------|\n",
+    "| **LLM-based (sub_agents)** | Dynamic orchestration needed | Research + Summarize | LLM decides what to call |\n",
+    "| **Sequential** | Order matters, linear pipeline | Outline → Write → Edit | Deterministic order |\n",
+    "| **Parallel** | Independent tasks, speed matters | Multi-topic research | Concurrent execution |\n",
+    "| **Loop** | Iterative improvement needed | Writer + Critic refinement | Repeated cycles |"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "b76a2909",
+   "metadata": {
+    "papermill": {
+     "duration": 0.011927,
+     "end_time": "2025-11-11T16:34:38.622492",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:38.610565",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "---\n",
+    "\n",
+    "## ✅ Congratulations! You're Now an Agent Orchestrator\n",
+    "\n",
+    "In this notebook, you made the leap from a single agent to a **multi-agent system**.\n",
+    "\n",
+    "You saw **why** a team of specialists is easier to build and debug than one \"do-it-all\" agent. Most importantly, you learned how to be the **director** of that team.\n",
+    "\n",
+    "You used `SequentialAgent`, `ParallelAgent`, and `LoopAgent` to create deterministic workflows, and you even used an LLM as a 'manager' to make dynamic decisions. You also mastered the \"plumbing\" by using `output_key` to pass state between agents and make them collaborative.\n",
+    "\n",
+    "**ℹ️ Note: No submission required!**\n",
+    "\n",
+    "This notebook is for your hands-on practice and learning only. You **do not** need to submit it anywhere to complete the course.\n",
+    "\n",
+    "### 📚 Learn More\n",
+    "\n",
+    "Refer to the following documentation to learn more:\n",
+    "\n",
+    "- [Agents in ADK](https://google.github.io/adk-docs/agents/)\n",
+    "- [Sequential Agents in ADK](https://google.github.io/adk-docs/agents/workflow-agents/sequential-agents/)\n",
+    "- [Parallel Agents in ADK](https://google.github.io/adk-docs/agents/workflow-agents/parallel-agents/)\n",
+    "- [Loop Agents in ADK](https://google.github.io/adk-docs/agents/workflow-agents/loop-agents/)\n",
+    "- [Custom Agents in ADK](https://google.github.io/adk-docs/agents/custom-agents/)\n",
+    "\n",
+    "### 🎯 Next Steps\n",
+    "\n",
+    "Ready for the next challenge? Stay tuned for Day 2 notebooks where we'll learn how to create **Custom Functions, use MCP Tools** and manage **Long-Running operations!**"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "4e16b273",
+   "metadata": {
+    "papermill": {
+     "duration": 0.010851,
+     "end_time": "2025-11-11T16:34:38.644965",
+     "exception": false,
+     "start_time": "2025-11-11T16:34:38.634114",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "---\n",
+    "\n",
+    "| Authors |\n",
+    "| --- |\n",
+    "| [Kristopher Overholt](https://www.linkedin.com/in/koverholt) |"
+   ]
+  }
+ ],
+ "metadata": {
+  "kaggle": {
+   "accelerator": "none",
+   "dataSources": [],
+   "isGpuEnabled": false,
+   "isInternetEnabled": true,
+   "language": "python",
+   "sourceType": "notebook"
+  },
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.11.13"
+  },
+  "papermill": {
+   "default_parameters": {},
+   "duration": 91.243991,
+   "end_time": "2025-11-11T16:34:42.077538",
+   "environment_variables": {},
+   "exception": null,
+   "input_path": "__notebook__.ipynb",
+   "output_path": "__notebook__.ipynb",
+   "parameters": {},
+   "start_time": "2025-11-11T16:33:10.833547",
+   "version": "2.6.0"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}
